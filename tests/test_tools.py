@@ -162,9 +162,20 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(parse_when("오늘 밤").hour, 21)
 
     def test_normalize_common_region_aliases(self):
+        self.assertEqual(normalize_region_name("서울"), "서울특별시")
         self.assertEqual(normalize_region_name("서울시"), "서울특별시")
-        self.assertEqual(normalize_region_name("부산시"), "부산광역시")
         self.assertEqual(normalize_region_name("서울특별시"), "서울특별시")
+        self.assertEqual(normalize_region_name("서울 양천"), "서울특별시 양천구")
+        self.assertEqual(normalize_region_name("서울시 양천구"), "서울특별시 양천구")
+        self.assertEqual(normalize_region_name("양천"), "서울특별시 양천구")
+        self.assertEqual(normalize_region_name("해운대"), "부산광역시 해운대구")
+        self.assertEqual(normalize_region_name("부산 해운대"), "부산광역시 해운대구")
+        self.assertEqual(normalize_region_name("강원 원주"), "강원특별자치도 원주시")
+        self.assertEqual(normalize_region_name("충남 천안"), "충청남도 천안시")
+        self.assertEqual(normalize_region_name("전북 전주"), "전북특별자치도 전주시")
+        self.assertEqual(normalize_region_name("경북 포항"), "경상북도 포항시")
+        self.assertEqual(normalize_region_name("경남 창원"), "경상남도 창원시")
+        self.assertEqual(normalize_region_name("중구"), "중구")
 
     def test_outing_score_calculation(self):
         score, cautions = outing_score(self.weather, self.places, candidates_from_source(SourceResult(self.hospitals, "테스트"), "동물병원"))

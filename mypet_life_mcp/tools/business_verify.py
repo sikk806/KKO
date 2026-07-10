@@ -6,7 +6,7 @@ from mypet_life_mcp.core.normalizer import normalize_address, normalize_text, si
 from mypet_life_mcp.core.schemas import ValidationError, require_text
 from mypet_life_mcp.core.scoring import is_active_status
 
-from .common import item_to_candidate, source_warnings
+from .common import item_to_candidate, normalize_region_name, source_warnings
 
 
 def verify_pet_business(
@@ -21,13 +21,14 @@ def verify_pet_business(
     except ValidationError as exc:
         return {"status": "invalid_request", "summary_ko": str(exc), "safety_note_ko": safety_note_ko()}
 
-    license_result = (license_client or PetBusinessLicenseClient()).search(name, region, business_type)
+    normalized_region = normalize_region_name(region) if region else None
+    license_result = (license_client or PetBusinessLicenseClient()).search(name, normalized_region, business_type)
     license_matches = [item_to_candidate(item, license_result.source) for item in license_result.items]
     map_candidates = []
     map_error = None
     if kakao_client:
         try:
-            geo = kakao_client.geocode(region or name)
+            geo = kakao_client.geocode(normalized_region or name)
             map_candidates = kakao_client.keyword_search(name, geo.latitude, geo.longitude)
         except Exception as exc:
             map_error = str(exc)
