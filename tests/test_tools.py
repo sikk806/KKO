@@ -7,7 +7,7 @@ from pathlib import Path
 
 from mypet_life_mcp.clients.base import MissingApiKeyError
 from mypet_life_mcp.core.korean import FORBIDDEN_USER_PHRASES
-from mypet_life_mcp.core.schemas import GeoPoint, SourceResult
+from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, parse_when
 from mypet_life_mcp.core.scoring import candidate_score, is_holiday_or_night, outing_score, rank_candidates
 from mypet_life_mcp.tools import (
     find_pet_emergency_candidates,
@@ -155,6 +155,11 @@ class ToolTests(unittest.TestCase):
 
         self.assertTrue(is_holiday_or_night(datetime.fromisoformat("2026-07-04T10:00:00+09:00")))
         self.assertTrue(is_holiday_or_night(datetime.fromisoformat("2026-07-06T21:00:00+09:00")))
+
+    def test_parse_when_accepts_natural_now(self):
+        self.assertIsNotNone(parse_when("지금").tzinfo)
+        self.assertIsNotNone(parse_when("현재").tzinfo)
+        self.assertEqual(parse_when("오늘 밤").hour, 21)
 
     def test_outing_score_calculation(self):
         score, cautions = outing_score(self.weather, self.places, candidates_from_source(SourceResult(self.hospitals, "테스트"), "동물병원"))

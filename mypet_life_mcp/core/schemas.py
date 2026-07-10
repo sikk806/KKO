@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any
 
 
@@ -89,6 +89,12 @@ def optional_coordinate(value: Any, field_name: str, minimum: float, maximum: fl
 def parse_when(value: str | None) -> datetime:
     if not value:
         return datetime.now().astimezone()
+    natural = value.strip().lower()
+    if natural in {"now", "current", "today", "지금", "현재", "오늘"}:
+        return datetime.now().astimezone()
+    if natural in {"tonight", "야간", "오늘 밤", "오늘밤"}:
+        today = datetime.now().astimezone().date()
+        return datetime.combine(today, time(hour=21)).astimezone()
     try:
         normalized = value.replace("Z", "+00:00")
         return datetime.fromisoformat(normalized)
