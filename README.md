@@ -20,26 +20,9 @@ MyPet Life MCP는 반려동물 보호자가 외출, 여행, 휴일, 야간 상�
 - 외부 API 실패 시 가능한 범위의 결과와 `source_warnings_ko`를 함께 반환합니다.
 - 개인 보호자 정보, 동물등록번호, RFID 정보는 요구하거나 저장하지 않습니다.
 
-## 환경변수
+## 설정
 
-필수:
-
-```env
-DATA_GO_KR_SERVICE_KEY=
-```
-
-선택:
-
-```env
-KAKAO_REST_API_KEY=
-KTO_SERVICE_KEY=
-KMA_SERVICE_KEY=
-KASI_SERVICE_KEY=
-```
-
-`KTO_SERVICE_KEY`, `KMA_SERVICE_KEY`, `KASI_SERVICE_KEY`가 없으면 `DATA_GO_KR_SERVICE_KEY`를 fallback으로 사용합니다.
-
-`KAKAO_REST_API_KEY`는 주소를 좌표로 변환할 때만 필요합니다. PlayMCP 또는 호출 환경에서 현재 위치 좌표를 넘겨줄 수 있다면 필수는 아닙니다.
+배포에 필요한 환경변수 이름은 `.env.example`을 참고합니다. 실제 API 키 값은 코드나 Git 저장소에 커밋하지 않습니다.
 
 ## 로컬 실행
 
@@ -50,16 +33,7 @@ python -m mypet_life_mcp.server
 
 기본 실행은 stdio MCP 서버입니다.
 
-HTTP MCP 서버로 실행하려면:
-
-```bash
-set MCP_TRANSPORT=streamable-http
-set HOST=0.0.0.0
-set PORT=8000
-python -m mypet_life_mcp.server
-```
-
-FastMCP streamable HTTP 경로는 `/mcp`입니다.
+컨테이너 배포 시에는 Dockerfile 설정에 따라 HTTP MCP 서버로 실행됩니다. FastMCP streamable HTTP 경로는 `/mcp`입니다.
 
 ## 테스트
 
@@ -95,19 +69,9 @@ Git URL: https://github.com/sikk806/KKO.git
 Dockerfile 경로: Dockerfile
 ```
 
-PlayMCP in KC 환경변수에는 최소한 아래 값을 등록합니다.
+PlayMCP in KC 환경변수에는 `.env.example`에 있는 값들을 등록합니다. 실제 키 값은 GitHub에 올리지 않습니다.
 
-```env
-DATA_GO_KR_SERVICE_KEY=공공데이터포털_서비스키
-```
-
-컨테이너 기본값은 Dockerfile에 설정되어 있습니다.
-
-```env
-HOST=0.0.0.0
-PORT=8000
-MCP_TRANSPORT=streamable-http
-```
+컨테이너 실행에 필요한 기본값은 Dockerfile에 설정되어 있습니다.
 
 서버가 Active 상태가 되면 Endpoint URL을 복사해 PlayMCP에 등록합니다. 경로를 직접 지정해야 하는 경우 `/mcp`를 사용합니다.
 
