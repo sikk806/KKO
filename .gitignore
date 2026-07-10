@@ -1,0 +1,48 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python cache and build outputs
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local Codex/agent workspace files
+.agents/
+.codex/
+AGENTS.md
+
+# Local scratch/downloaded reference files
+api_url_list.xlsx
+LOCAL_TESTING.md
+PLAYMCP_DEPLOY.md
+
+# Logs and runtime files
+*.log
+*.pid
+tmp/
+temp/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
