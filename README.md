@@ -13,7 +13,7 @@ MyPet Life MCP는 반려동물 보호자가 외출, 여행, 휴일, 야간 상�
 
 ## 주요 특징
 
-- 현재 위치 좌표(`latitude`, `longitude`)를 직접 받으면 카카오 Local API 없이도 동작합니다.
+- 현재 위치 좌표(`latitude`, `longitude`)를 받아 위치 기반 후보를 정리합니다.
 - 동물병원/동물약국/인허가 정보는 공공데이터 기반 후보로 제공합니다.
 - 공휴일 판단은 한국천문연구원 특일 정보를 사용합니다.
 - 외출 계획은 한국관광공사 반려동물 동반여행 정보와 기상청 단기예보를 함께 사용합니다.
@@ -86,7 +86,6 @@ PlayMCP in KC 환경변수에는 `.env.example`에 있는 값들을 등록합니
 - [한국관광공사_반려동물_동반여행_서비스](https://www.data.go.kr/data/15135102/openapi.do)
 - [기상청_단기예보 조회서비스](https://www.data.go.kr/data/15084084/openapi.do)
 - [한국천문연구원_특일 정보](https://www.data.go.kr/data/15012690/openapi.do)
-- [카카오 Local API](https://developers.kakao.com/docs/latest/ko/local/dev-guide)
 
 ## 안전 제한
 
