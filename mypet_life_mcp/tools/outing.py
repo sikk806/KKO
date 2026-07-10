@@ -11,7 +11,7 @@ from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, outing_score, rank_candidates
 
-from .common import candidates_from_source, map_place, setup_response, source_warnings
+from .common import candidates_from_source, map_place, normalize_region_name, setup_response, source_warnings
 
 
 def make_pet_outing_plan(
@@ -29,7 +29,7 @@ def make_pet_outing_plan(
     pharmacy_client: AnimalPharmacyClient | None = None,
 ) -> dict:
     try:
-        location_text = require_text(location, "location")
+        location_text = normalize_region_name(require_text(location, "location"))
         radius = positive_radius(radius_km)
         moment = parse_when(when)
         lat = optional_coordinate(latitude, "latitude", -90, 90)

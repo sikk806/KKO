@@ -15,7 +15,7 @@ from mypet_life_mcp.tools import (
     make_pet_outing_plan,
     verify_pet_business,
 )
-from mypet_life_mcp.tools.common import candidates_from_source
+from mypet_life_mcp.tools.common import candidates_from_source, normalize_region_name
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -160,6 +160,11 @@ class ToolTests(unittest.TestCase):
         self.assertIsNotNone(parse_when("지금").tzinfo)
         self.assertIsNotNone(parse_when("현재").tzinfo)
         self.assertEqual(parse_when("오늘 밤").hour, 21)
+
+    def test_normalize_common_region_aliases(self):
+        self.assertEqual(normalize_region_name("서울시"), "서울특별시")
+        self.assertEqual(normalize_region_name("부산시"), "부산광역시")
+        self.assertEqual(normalize_region_name("서울특별시"), "서울특별시")
 
     def test_outing_score_calculation(self):
         score, cautions = outing_score(self.weather, self.places, candidates_from_source(SourceResult(self.hospitals, "테스트"), "동물병원"))

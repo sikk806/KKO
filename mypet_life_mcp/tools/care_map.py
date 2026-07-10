@@ -5,7 +5,7 @@ from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, rank_candidates
 
-from .common import candidates_from_source, setup_response, source_warnings
+from .common import candidates_from_source, normalize_region_name, setup_response, source_warnings
 
 
 def make_pet_care_map(
@@ -19,7 +19,7 @@ def make_pet_care_map(
     pharmacy_client: AnimalPharmacyClient | None = None,
 ) -> dict:
     try:
-        location_text = require_text(location, "location")
+        location_text = normalize_region_name(require_text(location, "location"))
         radius = positive_radius(radius_km)
         lat = optional_coordinate(latitude, "latitude", -90, 90)
         lon = optional_coordinate(longitude, "longitude", -180, 180)

@@ -5,7 +5,7 @@ from mypet_life_mcp.core.korean import safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, is_holiday_or_night, rank_candidates
 
-from .common import candidates_from_source, setup_response, source_warnings
+from .common import candidates_from_source, normalize_region_name, setup_response, source_warnings
 
 
 def find_pet_emergency_candidates(
@@ -22,7 +22,7 @@ def find_pet_emergency_candidates(
     holiday_client: HolidayClient | None = None,
 ) -> dict:
     try:
-        location_text = require_text(location, "location")
+        location_text = normalize_region_name(require_text(location, "location"))
         radius = positive_radius(radius_km)
         moment = parse_when(when)
         lat = optional_coordinate(latitude, "latitude", -90, 90)
@@ -37,12 +37,9 @@ def find_pet_emergency_candidates(
         kakao = kakao_client or KakaoLocalClient()
         try:
             origin = kakao.geocode(location_text)
-        except Exception as exc:
+        except Exception:
             origin = None
-            geocode_warning = (
-                f"좌표가 제공되지 않았고 카카오 위치 변환을 사용할 수 없어 지역명 '{location_text}' 기준으로만 후보를 조회합니다. "
-                f"거리순 정렬은 제한됩니다. 확인 내용: {str(exc)}"
-            )
+            geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
 
     holiday_result = (holiday_client or HolidayClient()).check(moment.date())
     holiday = bool(holiday_result.items and holiday_result.items[0].get("is_holiday"))
