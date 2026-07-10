@@ -3,10 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 class ValidationError(ValueError):
     """Raised when tool input is invalid."""
+
+
+KST = ZoneInfo("Asia/Seoul")
 
 
 @dataclass(frozen=True)
@@ -88,15 +92,18 @@ def optional_coordinate(value: Any, field_name: str, minimum: float, maximum: fl
 
 def parse_when(value: str | None) -> datetime:
     if not value:
-        return datetime.now().astimezone()
+        return datetime.now(KST)
     natural = value.strip().lower()
     if natural in {"now", "current", "today", "지금", "현재", "오늘"}:
-        return datetime.now().astimezone()
+        return datetime.now(KST)
     if natural in {"tonight", "야간", "오늘 밤", "오늘밤"}:
-        today = datetime.now().astimezone().date()
-        return datetime.combine(today, time(hour=21)).astimezone()
+        today = datetime.now(KST).date()
+        return datetime.combine(today, time(hour=21), tzinfo=KST)
     try:
         normalized = value.replace("Z", "+00:00")
-        return datetime.fromisoformat(normalized)
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=KST)
+        return parsed
     except ValueError as exc:
         raise ValidationError("when은 ISO 날짜/시간 형식으로 입력해 주세요.") from exc
