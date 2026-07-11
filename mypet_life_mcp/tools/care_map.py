@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient, KakaoLocalClient
+from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient
 from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, rank_candidates
@@ -14,7 +14,6 @@ def make_pet_care_map(
     include_pharmacies: bool = True,
     latitude: float | None = None,
     longitude: float | None = None,
-    kakao_client: KakaoLocalClient | None = None,
     hospital_client: AnimalHospitalClient | None = None,
     pharmacy_client: AnimalPharmacyClient | None = None,
 ) -> dict:
@@ -25,18 +24,15 @@ def make_pet_care_map(
         lon = optional_coordinate(longitude, "longitude", -180, 180)
     except ValidationError as exc:
         return {"status": "invalid_request", "summary_ko": str(exc), "safety_note_ko": safety_note_ko()}
-    geocode_warning = None
+    location_warning = None
     if lat is not None and lon is not None:
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
-        try:
-            origin = (kakao_client or KakaoLocalClient()).geocode(location_text)
-        except Exception:
-            origin = region_centroid(location_text)
-            if origin:
-                geocode_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
-            else:
-                geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
+        origin = region_centroid(location_text)
+        if origin:
+            location_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
+        else:
+            location_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
 
     search_region = origin.address if origin and origin.address else location_text
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
@@ -61,7 +57,7 @@ def make_pet_care_map(
         "radius_km": radius,
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],
         "animal_pharmacies": [candidate.to_dict() for candidate in pharmacies],
-        "source_warnings_ko": ([geocode_warning] if geocode_warning else []) + warnings,
+        "source_warnings_ko": ([location_warning] if location_warning else []) + warnings,
         "summary_ko": f"{location_text} 주변의 동물병원과 동물약국 후보를 지도/공공데이터 기준으로 정리했습니다. {confirmation_note_ko()}",
         "safety_note_ko": safety_note_ko(),
     }

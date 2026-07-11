@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient, HolidayClient, KakaoLocalClient
+from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient, HolidayClient
 from mypet_life_mcp.core.korean import safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, is_holiday_or_night, rank_candidates
@@ -16,7 +16,6 @@ def find_pet_emergency_candidates(
     when: str | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
-    kakao_client: KakaoLocalClient | None = None,
     hospital_client: AnimalHospitalClient | None = None,
     pharmacy_client: AnimalPharmacyClient | None = None,
     holiday_client: HolidayClient | None = None,
@@ -30,19 +29,15 @@ def find_pet_emergency_candidates(
     except ValidationError as exc:
         return {"status": "invalid_request", "summary_ko": str(exc), "safety_note_ko": safety_note_ko()}
 
-    geocode_warning = None
+    location_warning = None
     if lat is not None and lon is not None:
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
-        kakao = kakao_client or KakaoLocalClient()
-        try:
-            origin = kakao.geocode(location_text)
-        except Exception:
-            origin = region_centroid(location_text)
-            if origin:
-                geocode_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
-            else:
-                geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
+        origin = region_centroid(location_text)
+        if origin:
+            location_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
+        else:
+            location_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
 
     holiday_result = (holiday_client or HolidayClient()).check(moment.date())
     holiday = bool(holiday_result.items and holiday_result.items[0].get("is_holiday"))
@@ -76,7 +71,7 @@ def find_pet_emergency_candidates(
         "is_holiday_or_night": night_mode,
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],
         "animal_pharmacies": [candidate.to_dict() for candidate in pharmacies],
-        "source_warnings_ko": ([geocode_warning] if geocode_warning else [])
+        "source_warnings_ko": ([location_warning] if location_warning else [])
         + source_warnings(holiday_result, hospital_result, pharmacy_result),
         "summary_ko": summary,
         "call_script_ko": call_script,

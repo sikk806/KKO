@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mypet_life_mcp.clients import KakaoLocalClient, PetBusinessLicenseClient
+from mypet_life_mcp.clients import PetBusinessLicenseClient
 from mypet_life_mcp.core.korean import safety_note_ko
 from mypet_life_mcp.core.normalizer import normalize_address, normalize_text, similarity
 from mypet_life_mcp.core.schemas import ValidationError, require_text
@@ -14,7 +14,6 @@ def verify_pet_business(
     region: str | None = None,
     business_type: str | None = "unknown",
     license_client: PetBusinessLicenseClient | None = None,
-    kakao_client: KakaoLocalClient | None = None,
 ) -> dict:
     try:
         name = require_text(business_name, "business_name")
@@ -24,24 +23,15 @@ def verify_pet_business(
     normalized_region = normalize_region_name(region) if region else None
     license_result = (license_client or PetBusinessLicenseClient()).search(name, normalized_region, business_type)
     license_matches = [item_to_candidate(item, license_result.source) for item in license_result.items]
-    map_candidates = []
-    map_error = None
-    if kakao_client:
-        try:
-            geo = kakao_client.geocode(normalized_region or name)
-            map_candidates = kakao_client.keyword_search(name, geo.latitude, geo.longitude)
-        except Exception as exc:
-            map_error = str(exc)
 
-    status, confidence, matched = _verification_status(name, license_matches, map_candidates)
+    status, confidence, matched = _verification_status(name, license_matches)
     notes = _notes(status)
     result = {
         "business_name": name,
         "status": status,
         "confidence": confidence,
         "matched_license": matched.to_dict() if matched else None,
-        "map_candidates": map_candidates[:5],
-        "source_warnings_ko": source_warnings(license_result) + ([map_error] if map_error else []),
+        "source_warnings_ko": source_warnings(license_result),
         "verification_notes_ko": notes,
         "questions_to_ask_ko": [
             "인허가 등록명과 실제 운영명이 같은가요?",
@@ -55,18 +45,13 @@ def verify_pet_business(
     return result
 
 
-def _verification_status(name: str, licenses: list, map_candidates: list[dict]) -> tuple[str, float, object | None]:
+def _verification_status(name: str, licenses: list) -> tuple[str, float, object | None]:
     active = [candidate for candidate in licenses if is_active_status(candidate.business_status)]
     if not active:
         return ("not_found", 0.0, None)
     exact = [candidate for candidate in active if normalize_text(name) in normalize_text(candidate.name)]
     if len(exact) == 1:
-        confidence = 0.85
-        if map_candidates:
-            best_map = max(map_candidates, key=lambda item: similarity(exact[0].address, item.get("address_name") or item.get("road_address_name") or ""))
-            if similarity(exact[0].address, best_map.get("address_name") or best_map.get("road_address_name") or "") >= 0.45:
-                confidence = 0.95
-        return ("verified", confidence, exact[0])
+        return ("verified", 0.85, exact[0])
     if len(exact) > 1:
         return ("ambiguous", 0.55, exact[0])
     scored = sorted(active, key=lambda item: similarity(name, item.name) + similarity(normalize_address(item.address), name), reverse=True)

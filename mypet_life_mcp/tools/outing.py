@@ -3,7 +3,6 @@ from __future__ import annotations
 from mypet_life_mcp.clients import (
     AnimalHospitalClient,
     AnimalPharmacyClient,
-    KakaoLocalClient,
     PetFriendlyPlaceClient,
     WeatherClient,
 )
@@ -46,7 +45,6 @@ def make_pet_outing_plan(
     when: str | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
-    kakao_client: KakaoLocalClient | None = None,
     place_client: PetFriendlyPlaceClient | None = None,
     weather_client: WeatherClient | None = None,
     hospital_client: AnimalHospitalClient | None = None,
@@ -61,18 +59,15 @@ def make_pet_outing_plan(
     except ValidationError as exc:
         return {"status": "invalid_request", "summary_ko": str(exc), "safety_note_ko": safety_note_ko()}
 
-    geocode_warning = None
+    location_warning = None
     if lat is not None and lon is not None:
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
-        try:
-            origin = (kakao_client or KakaoLocalClient()).geocode(location_text)
-        except Exception:
-            origin = region_centroid(location_text)
-            if origin:
-                geocode_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 외출 계획을 만듭니다."
-            else:
-                geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 제한된 외출 계획을 만듭니다. 거리순 장소 추천은 제한됩니다."
+        origin = region_centroid(location_text)
+        if origin:
+            location_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 외출 계획을 만듭니다."
+        else:
+            location_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 제한된 외출 계획을 만듭니다. 거리순 장소 추천은 제한됩니다."
 
     if origin:
         place_result = (place_client or PetFriendlyPlaceClient()).search(
@@ -116,7 +111,7 @@ def make_pet_outing_plan(
             "animal_pharmacies": [candidate.to_dict() for candidate in pharmacies],
         },
         "cautions_ko": cautions + [confirmation_note_ko()],
-        "source_warnings_ko": ([geocode_warning] if geocode_warning else [])
+        "source_warnings_ko": ([location_warning] if location_warning else [])
         + source_warnings(place_result, weather_result, hospital_result, pharmacy_result),
         "summary_ko": f"{location_text} 주변 반려동물 동반 외출 계획을 정리했습니다. 외출 적합도는 {score}점입니다.",
         "safety_note_ko": safety_note_ko(),

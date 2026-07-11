@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 import unittest
 from pathlib import Path
 
-from mypet_life_mcp.clients.base import MissingApiKeyError
 from mypet_life_mcp.core.korean import FORBIDDEN_USER_PHRASES
 from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, parse_when
 from mypet_life_mcp.core.scoring import candidate_score, is_holiday_or_night, outing_score, rank_candidates
@@ -24,21 +22,6 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures"
 def load_fixture(name: str):
     with (FIXTURE_DIR / name).open(encoding="utf-8") as file:
         return json.load(file)
-
-
-class FakeKakao:
-    def geocode(self, location: str) -> GeoPoint:
-        if location == "없는곳":
-            raise RuntimeError("입력한 위치를 찾지 못했습니다.")
-        return GeoPoint(label=location, latitude=37.5, longitude=127.025, address="서울특별시 강남구")
-
-    def keyword_search(self, query: str, latitude: float, longitude: float, radius_m: int = 5000):
-        return [{"place_name": query, "address_name": "서울특별시 강남구 호텔로 7"}]
-
-
-class MissingKakao:
-    def geocode(self, location: str) -> GeoPoint:
-        raise MissingApiKeyError("카카오 로컬 API", "KAKAO_REST_API_KEY")
 
 
 class FakeSourceClient:
@@ -85,7 +68,7 @@ class ToolTests(unittest.TestCase):
         self.assertIn("summary_ko", payload)
 
     def test_geocoding_failure_is_korean(self):
-        result = make_pet_care_map("없는곳", kakao_client=FakeKakao(), hospital_client=FakeSourceClient(self.hospitals))
+        result = make_pet_care_map("없는곳", hospital_client=FakeSourceClient(self.hospitals))
         self.assertEqual(result["location_precision"], "region_text_only")
         self.assertIn("좌표가 없어", result["source_warnings_ko"][0])
 
@@ -112,7 +95,6 @@ class ToolTests(unittest.TestCase):
             pet_type="강아지",
             situation="medicine needed",
             when="2026-07-05T22:00:00+09:00",
-            kakao_client=FakeKakao(),
             hospital_client=FakeSourceClient(self.hospitals),
             pharmacy_client=FakeSourceClient(self.pharmacies),
             holiday_client=FakeHoliday(True),
@@ -124,14 +106,13 @@ class ToolTests(unittest.TestCase):
         self.assert_korean_safe(result)
 
     def test_missing_api_key_behavior(self):
-        result = make_pet_care_map("강남", kakao_client=MissingKakao(), hospital_client=FakeSourceClient(self.hospitals))
+        result = make_pet_care_map("강남", hospital_client=FakeSourceClient(self.hospitals))
         self.assertEqual(result["location_precision"], "coordinate")
         self.assertTrue(result["animal_hospitals"])
 
         emergency = find_pet_emergency_candidates(
             "서울시",
             when="지금",
-            kakao_client=MissingKakao(),
             hospital_client=FakeSourceClient(self.hospitals),
             pharmacy_client=FakeSourceClient(self.pharmacies),
             holiday_client=FakeHoliday(False),
@@ -141,25 +122,22 @@ class ToolTests(unittest.TestCase):
     def test_partial_api_failure_behavior(self):
         result = make_pet_care_map(
             "강남",
-            kakao_client=FakeKakao(),
             hospital_client=FakeSourceClient(self.hospitals),
             pharmacy_client=FakeSourceClient([], ok=False, error_ko="동물약국 조회에 실패했습니다."),
         )
         self.assertTrue(result["animal_hospitals"])
         self.assertIn("동물약국 조회에 실패했습니다.", result["source_warnings_ko"])
 
-    def test_provided_coordinates_skip_kakao_and_enable_distance(self):
+    def test_provided_coordinates_enable_distance(self):
         result = make_pet_care_map(
             "현재 위치",
             latitude=37.5,
             longitude=127.025,
-            kakao_client=MissingKakao(),
             hospital_client=FakeSourceClient(self.hospitals),
             pharmacy_client=FakeSourceClient(self.pharmacies),
         )
         self.assertEqual(result["location_precision"], "provided_coordinate")
         self.assertIsNotNone(result["animal_hospitals"][0]["distance_km"])
-        self.assertFalse(any("카카오 위치 변환" in warning for warning in result["source_warnings_ko"]))
 
     def test_holiday_night_mode_detection(self):
         from datetime import datetime
@@ -205,7 +183,6 @@ class ToolTests(unittest.TestCase):
     def test_outing_tool(self):
         result = make_pet_outing_plan(
             "강남",
-            kakao_client=FakeKakao(),
             place_client=FakeSourceClient(self.places),
             weather_client=FakeWeather(self.weather),
             hospital_client=FakeSourceClient(self.hospitals),
@@ -216,7 +193,7 @@ class ToolTests(unittest.TestCase):
         self.assert_korean_safe(result)
 
     def test_business_verification_statuses(self):
-        verified = verify_pet_business("해피펫호텔", "강남", "hotel", license_client=FakeSourceClient(self.licenses), kakao_client=FakeKakao())
+        verified = verify_pet_business("해피펫호텔", "강남", "hotel", license_client=FakeSourceClient(self.licenses))
         self.assertEqual(verified["status"], "verified")
         possible = verify_pet_business("해피펫", "강남", "hotel", license_client=FakeSourceClient(self.licenses))
         self.assertIn(possible["status"], {"possible_match", "verified"})
