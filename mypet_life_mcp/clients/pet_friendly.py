@@ -33,6 +33,25 @@ class PetFriendlyPlaceClient(BaseApiClient):
         except Exception as exc:
             return self.source_error(exc)
 
+    def search_keyword(self, keyword: str, content_type: str | None = None, rows: int = 10) -> SourceResult:
+        try:
+            key = self.get_key("KTO_SERVICE_KEY", "DATA_GO_KR_SERVICE_KEY")
+            params = {
+                "serviceKey": key,
+                "MobileOS": "ETC",
+                "MobileApp": "MyPetLife",
+                "keyword": keyword,
+                "numOfRows": rows,
+                "pageNo": 1,
+                "_type": "json",
+            }
+            if content_type:
+                params["contentTypeId"] = content_type
+            data = self.get_json("https://apis.data.go.kr/B551011/KorPetTourService2/searchKeyword2", params)
+            return SourceResult(items=_items(data), source=self.service_name)
+        except Exception as exc:
+            return self.source_error(exc)
+
 
 def _items(data: dict) -> list[dict]:
     items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])

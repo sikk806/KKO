@@ -14,7 +14,7 @@ from mypet_life_mcp.tools import (
     verify_pet_business,
 )
 from mypet_life_mcp.tools.common import candidates_from_source, normalize_region_name, region_centroid
-from mypet_life_mcp.tools.outing import _content_type_for_outing
+from mypet_life_mcp.tools.outing import _content_type_for_outing, _outing_intent
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -174,6 +174,9 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(_content_type_for_outing("점심 식사"), "39")
         self.assertEqual(_content_type_for_outing("펜션 숙소"), "32")
         self.assertEqual(_content_type_for_outing("산책 놀이"), "12")
+        self.assertEqual(_outing_intent("강아지랑 물놀이"), "water")
+        self.assertEqual(_outing_intent("비오는날 실내"), "indoor")
+        self.assertEqual(_outing_intent("드라이브"), "drive")
 
     def test_outing_score_calculation(self):
         score, cautions = outing_score(self.weather, self.places, candidates_from_source(SourceResult(self.hospitals, "테스트"), "동물병원"))
