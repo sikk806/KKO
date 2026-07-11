@@ -15,7 +15,8 @@ from mypet_life_mcp.tools import (
     make_pet_outing_plan,
     verify_pet_business,
 )
-from mypet_life_mcp.tools.common import candidates_from_source, normalize_region_name
+from mypet_life_mcp.tools.common import candidates_from_source, normalize_region_name, region_centroid
+from mypet_life_mcp.tools.outing import _content_type_for_outing
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -86,7 +87,7 @@ class ToolTests(unittest.TestCase):
     def test_geocoding_failure_is_korean(self):
         result = make_pet_care_map("없는곳", kakao_client=FakeKakao(), hospital_client=FakeSourceClient(self.hospitals))
         self.assertEqual(result["location_precision"], "region_text_only")
-        self.assertIn("카카오 위치 변환", result["source_warnings_ko"][0])
+        self.assertIn("좌표가 없어", result["source_warnings_ko"][0])
 
     def test_distance_sorting_and_keyword_ranking(self):
         origin = GeoPoint("강남", 37.5, 127.025)
@@ -124,8 +125,18 @@ class ToolTests(unittest.TestCase):
 
     def test_missing_api_key_behavior(self):
         result = make_pet_care_map("강남", kakao_client=MissingKakao(), hospital_client=FakeSourceClient(self.hospitals))
-        self.assertEqual(result["location_precision"], "region_text_only")
+        self.assertEqual(result["location_precision"], "coordinate")
         self.assertTrue(result["animal_hospitals"])
+
+        emergency = find_pet_emergency_candidates(
+            "서울시",
+            when="지금",
+            kakao_client=MissingKakao(),
+            hospital_client=FakeSourceClient(self.hospitals),
+            pharmacy_client=FakeSourceClient(self.pharmacies),
+            holiday_client=FakeHoliday(False),
+        )
+        self.assertEqual(emergency["location_precision"], "coordinate")
 
     def test_partial_api_failure_behavior(self):
         result = make_pet_care_map(
@@ -167,6 +178,8 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(normalize_region_name("서울특별시"), "서울특별시")
         self.assertEqual(normalize_region_name("서울 양천"), "서울특별시 양천구")
         self.assertEqual(normalize_region_name("서울시 양천구"), "서울특별시 양천구")
+        self.assertEqual(normalize_region_name("서울 양천구 신정동 920-31"), "서울특별시 양천구")
+        self.assertEqual(normalize_region_name("서울특별시 영등포구 국회대로74길"), "서울특별시 영등포구")
         self.assertEqual(normalize_region_name("양천"), "서울특별시 양천구")
         self.assertEqual(normalize_region_name("해운대"), "부산광역시 해운대구")
         self.assertEqual(normalize_region_name("부산 해운대"), "부산광역시 해운대구")
@@ -176,6 +189,13 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(normalize_region_name("경북 포항"), "경상북도 포항시")
         self.assertEqual(normalize_region_name("경남 창원"), "경상남도 창원시")
         self.assertEqual(normalize_region_name("중구"), "중구")
+
+    def test_region_centroid_and_outing_type_mapping(self):
+        self.assertIsNotNone(region_centroid("서울 양천"))
+        self.assertIsNotNone(region_centroid("부산 해운대"))
+        self.assertEqual(_content_type_for_outing("점심 식사"), "39")
+        self.assertEqual(_content_type_for_outing("펜션 숙소"), "32")
+        self.assertEqual(_content_type_for_outing("산책 놀이"), "12")
 
     def test_outing_score_calculation(self):
         score, cautions = outing_score(self.weather, self.places, candidates_from_source(SourceResult(self.hospitals, "테스트"), "동물병원"))

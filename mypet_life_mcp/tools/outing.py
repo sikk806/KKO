@@ -11,7 +11,31 @@ from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, outing_score, rank_candidates
 
-from .common import candidates_from_source, map_place, normalize_region_name, setup_response, source_warnings
+from .common import candidates_from_source, map_place, normalize_region_name, region_centroid, setup_response, source_warnings
+
+
+OUTING_TYPE_CONTENT_TYPE = {
+    "숙소": "32",
+    "펜션": "32",
+    "호텔": "32",
+    "캠핑": "32",
+    "글램핑": "32",
+    "식사": "39",
+    "점심": "39",
+    "저녁": "39",
+    "밥": "39",
+    "맛집": "39",
+    "카페": "39",
+    "놀이": "12",
+    "놀거리": "12",
+    "산책": "12",
+    "관광": "12",
+    "여행": "12",
+    "walk": "12",
+    "play": "12",
+    "meal": "39",
+    "stay": "32",
+}
 
 
 def make_pet_outing_plan(
@@ -43,15 +67,20 @@ def make_pet_outing_plan(
     else:
         try:
             origin = (kakao_client or KakaoLocalClient()).geocode(location_text)
-        except Exception as exc:
-            origin = None
-            geocode_warning = (
-                f"좌표가 제공되지 않았고 카카오 위치 변환을 사용할 수 없어 지역명 '{location_text}' 기준으로 제한된 외출 계획을 만듭니다. "
-                f"거리순 장소 추천은 제한됩니다. 확인 내용: {str(exc)}"
-            )
+        except Exception:
+            origin = region_centroid(location_text)
+            if origin:
+                geocode_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 외출 계획을 만듭니다."
+            else:
+                geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 제한된 외출 계획을 만듭니다. 거리순 장소 추천은 제한됩니다."
 
     if origin:
-        place_result = (place_client or PetFriendlyPlaceClient()).search(origin.latitude, origin.longitude, radius, outing_type)
+        place_result = (place_client or PetFriendlyPlaceClient()).search(
+            origin.latitude,
+            origin.longitude,
+            radius,
+            _content_type_for_outing(outing_type),
+        )
         weather_result = (weather_client or WeatherClient()).forecast(origin.latitude, origin.longitude, moment)
     else:
         place_result = _empty_source("한국관광공사 반려동물 동반 여행 정보", "좌표 변환이 없어 반려동물 동반 장소 조회를 건너뛰었습니다.")
@@ -101,6 +130,16 @@ def _compact_weather(items: list[dict]) -> dict:
     if "rain_probability" in item:
         return item
     return {"rain_probability": item.get("pop", 0), "precipitation_mm": item.get("pcp", 0), "temperature_c": item.get("tmp")}
+
+
+def _content_type_for_outing(outing_type: str | None) -> str | None:
+    if not outing_type:
+        return None
+    compact = outing_type.strip().lower().replace(" ", "")
+    for keyword, content_type in OUTING_TYPE_CONTENT_TYPE.items():
+        if keyword in compact:
+            return content_type
+    return None
 
 
 def _empty_source(source: str, error_ko: str):

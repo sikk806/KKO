@@ -5,7 +5,7 @@ from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, rank_candidates
 
-from .common import candidates_from_source, normalize_region_name, setup_response, source_warnings
+from .common import candidates_from_source, normalize_region_name, region_centroid, setup_response, source_warnings
 
 
 def make_pet_care_map(
@@ -31,12 +31,12 @@ def make_pet_care_map(
     else:
         try:
             origin = (kakao_client or KakaoLocalClient()).geocode(location_text)
-        except Exception as exc:
-            origin = None
-            geocode_warning = (
-                f"좌표가 제공되지 않았고 카카오 위치 변환을 사용할 수 없어 지역명 '{location_text}' 기준으로만 후보를 조회합니다. "
-                f"거리순 정렬은 제한됩니다. 확인 내용: {str(exc)}"
-            )
+        except Exception:
+            origin = region_centroid(location_text)
+            if origin:
+                geocode_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
+            else:
+                geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
 
     search_region = origin.address if origin and origin.address else location_text
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)

@@ -5,7 +5,7 @@ from mypet_life_mcp.core.korean import safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, is_holiday_or_night, rank_candidates
 
-from .common import candidates_from_source, normalize_region_name, setup_response, source_warnings
+from .common import candidates_from_source, normalize_region_name, region_centroid, setup_response, source_warnings
 
 
 def find_pet_emergency_candidates(
@@ -38,8 +38,11 @@ def find_pet_emergency_candidates(
         try:
             origin = kakao.geocode(location_text)
         except Exception:
-            origin = None
-            geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
+            origin = region_centroid(location_text)
+            if origin:
+                geocode_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
+            else:
+                geocode_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
 
     holiday_result = (holiday_client or HolidayClient()).check(moment.date())
     holiday = bool(holiday_result.items and holiday_result.items[0].get("is_holiday"))
