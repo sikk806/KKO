@@ -178,6 +178,17 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(_outing_intent("비오는날 실내"), "indoor")
         self.assertEqual(_outing_intent("드라이브"), "drive")
 
+    def test_outing_mood_intent_mapping(self):
+        self.assertEqual(_outing_intent("강아지랑 쉬고 싶은데 어디로 가야해"), "relax")
+        self.assertEqual(_outing_intent("조용하고 한적한 곳에서 힐링"), "relax")
+        self.assertEqual(_outing_intent("사진 찍기 좋은 감성 있는 곳"), "photo")
+        self.assertEqual(_outing_intent("신나게 뛰어놀 수 있는 곳"), "energetic")
+        self.assertEqual(_outing_intent("더워서 시원한 곳"), "cool")
+        self.assertEqual(_outing_intent("추워서 따뜻한 실내"), "indoor")
+        self.assertEqual(_outing_intent("다른 강아지 친구 만날 수 있는 곳"), "social")
+        self.assertEqual(_outing_intent("겁 많은 강아지랑 무난한 곳"), "easy")
+        self.assertEqual(_outing_intent("강아지랑 펜션에서 쉬고 싶어"), "stay")
+
     def test_outing_score_calculation(self):
         score, cautions = outing_score(self.weather, self.places, candidates_from_source(SourceResult(self.hospitals, "테스트"), "동물병원"))
         self.assertLess(score, 100)
