@@ -54,6 +54,8 @@ class PetFriendlyPlaceClient(BaseApiClient):
 
 
 def _items(data: dict) -> list[dict]:
+    if not isinstance(data, dict):
+        return []
     items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
     if isinstance(items, dict):
         items = [items]

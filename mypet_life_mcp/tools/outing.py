@@ -210,7 +210,7 @@ def _search_places(
     keyword_items = []
     if intent and hasattr(place_client, "search_keyword"):
         for keyword in _keywords_for_outing(outing_type, intent):
-            keyword_result = place_client.search_keyword(keyword, content_type=content_type, rows=5)
+            keyword_result = place_client.search_keyword(keyword, content_type=content_type, rows=20)
             if keyword_result.ok:
                 keyword_items.extend(keyword_result.items)
             deduped_so_far = _filter_items_by_intent(_dedupe_items(keyword_items), intent)
@@ -226,6 +226,8 @@ def _search_places(
         return SourceResult(items=local_keyword_items, source=place_client.service_name)
 
     location_result = place_client.search(latitude, longitude, radius, content_type)
+    if location_result.items:
+        return location_result
     if keyword_items and intent in SEMANTIC_FALLBACK_INTENTS:
         from mypet_life_mcp.core.schemas import SourceResult
 
