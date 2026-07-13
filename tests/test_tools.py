@@ -12,7 +12,7 @@ from mypet_life_mcp.tools import (
     make_pet_outing_plan,
     verify_pet_business,
 )
-from mypet_life_mcp.tools.common import candidates_from_source, normalize_region_name, region_centroid
+from mypet_life_mcp.tools.common import candidates_from_source, normalize_region_name, region_centroid, search_region_for_origin
 from mypet_life_mcp.tools.outing import _content_type_for_outing, _outing_intent
 from tests.helpers import FakeHoliday, FakeSourceClient, FakeWeather, load_fixture
 
@@ -169,6 +169,7 @@ class ToolTests(unittest.TestCase):
         self.assertIsNotNone(mokdong)
         self.assertIn("목동", mokdong.label)
         self.assertAlmostEqual(mokdong.latitude, 37.5261, places=3)
+        self.assertEqual(search_region_for_origin(mokdong, "목동역 근처"), "서울특별시 양천구")
 
         seoul = region_centroid("서울역")
         self.assertIsNotNone(seoul)
@@ -179,6 +180,16 @@ class ToolTests(unittest.TestCase):
         self.assertIn("서울특별시", city_hall.address)
 
         self.assertEqual(region_centroid("서울시").address, "서울특별시")
+
+    def test_station_warning_uses_station_basis(self):
+        result = find_pet_emergency_candidates(
+            "강남역 근처",
+            when="지금",
+            hospital_client=FakeSourceClient(self.hospitals),
+            pharmacy_client=FakeSourceClient(self.pharmacies),
+            holiday_client=FakeHoliday(False),
+        )
+        self.assertIn("강남역 위치 좌표 기준", result["source_warnings_ko"][0])
         self.assertEqual(_outing_intent("비오는날 실내"), "indoor")
         self.assertEqual(_outing_intent("드라이브"), "drive")
 

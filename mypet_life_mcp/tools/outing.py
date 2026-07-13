@@ -10,7 +10,15 @@ from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, outing_score, rank_candidates
 
-from .common import candidates_from_source, map_place, normalize_region_name, region_centroid, setup_response, source_warnings
+from .common import (
+    candidates_from_source,
+    location_basis_warning,
+    map_place,
+    normalize_region_name,
+    region_centroid,
+    search_region_for_origin,
+    source_warnings,
+)
 
 
 from .outing_intents import (
@@ -53,10 +61,7 @@ def make_pet_outing_plan(
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
         origin = region_centroid(location_text)
-        if origin:
-            location_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 외출 계획을 만듭니다."
-        else:
-            location_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 제한된 외출 계획을 만듭니다. 거리순 장소 추천은 제한됩니다."
+        location_warning = location_basis_warning(location_text, origin, "외출 계획을 만듭니다.")
 
     if origin:
         place_api = place_client or PetFriendlyPlaceClient()
@@ -72,7 +77,7 @@ def make_pet_outing_plan(
     else:
         place_result = _empty_source("한국관광공사 반려동물 동반 여행 정보", "좌표 변환이 없어 반려동물 동반 장소 조회를 건너뛰었습니다.")
         weather_result = _empty_source("기상청 단기예보", "좌표 변환이 없어 날씨 조회를 건너뛰었습니다.")
-    search_region = origin.address if origin and origin.address else location_text
+    search_region = search_region_for_origin(origin, location_text)
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
     pharmacy_result = (pharmacy_client or AnimalPharmacyClient()).search(search_region, radius)
 

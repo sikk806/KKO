@@ -5,7 +5,14 @@ from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
 from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, rank_candidates
 
-from .common import candidates_from_source, normalize_region_name, region_centroid, setup_response, source_warnings
+from .common import (
+    candidates_from_source,
+    location_basis_warning,
+    normalize_region_name,
+    region_centroid,
+    search_region_for_origin,
+    source_warnings,
+)
 
 
 def make_pet_care_map(
@@ -29,12 +36,9 @@ def make_pet_care_map(
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
         origin = region_centroid(location_text)
-        if origin:
-            location_warning = f"정확한 주소 좌표가 없어 '{location_text}' 지역 중심 기준으로 후보를 정리합니다."
-        else:
-            location_warning = f"좌표가 없어 지역명 '{location_text}' 기준으로 후보를 조회합니다. 거리순 정렬은 제한됩니다."
+        location_warning = location_basis_warning(location_text, origin, "후보를 정리합니다.")
 
-    search_region = origin.address if origin and origin.address else location_text
+    search_region = search_region_for_origin(origin, location_text)
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
     hospital_candidates = candidates_from_source(hospital_result, "동물병원")
     if origin:

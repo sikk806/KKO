@@ -64,6 +64,23 @@ def region_centroid(location: str) -> GeoPoint | None:
     return GeoPoint(label=normalized, latitude=latitude, longitude=longitude, address=normalized)
 
 
+def location_basis_warning(location: str, origin: GeoPoint | None, action_ko: str) -> str:
+    if origin and origin.label.endswith("역"):
+        return f"'{location}' 입력을 {origin.label} 위치 좌표 기준으로 {action_ko}"
+    if origin:
+        return f"정확한 주소 좌표가 없어 '{location}' 지역 중심 기준으로 {action_ko}"
+    return f"좌표가 없어 지역명 '{location}' 기준으로 {action_ko} 거리순 정렬은 제한됩니다."
+
+
+def search_region_for_origin(origin: GeoPoint | None, fallback: str) -> str:
+    if not origin or not origin.address:
+        return fallback
+    parts = origin.address.split()
+    if len(parts) >= 2 and parts[1].endswith(SIGUNGU_SUFFIXES):
+        return " ".join(parts[:2])
+    return origin.address
+
+
 def item_to_candidate(item: dict[str, Any], source: str, default_license_type: str = "") -> Candidate:
     name = first_present(item, "name", "사업장명", "업소명", "bplcNm", "title", "place_name")
     name = name or first_present(item, "BPLC_NM")
