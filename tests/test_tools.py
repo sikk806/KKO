@@ -104,6 +104,18 @@ class ToolTests(unittest.TestCase):
         self.assertTrue(result["animal_hospitals"])
         self.assertIn("동물약국 조회에 실패했습니다.", result["source_warnings_ko"])
 
+    def test_emergency_fallback_when_hospital_source_fails(self):
+        result = find_pet_emergency_candidates(
+            "목동역",
+            when="2026-07-14",
+            hospital_client=FakeSourceClient([], ok=False, error_ko="동물병원 조회에 실패했습니다."),
+            pharmacy_client=FakeSourceClient([]),
+            holiday_client=FakeHoliday(False),
+        )
+        self.assertTrue(result["animal_hospitals"])
+        self.assertIn("전화 확인 필요", result["animal_hospitals"][0]["business_status"])
+        self.assertTrue(any("내장 응급 연락 후보" in warning for warning in result["source_warnings_ko"]))
+
     def test_provided_coordinates_enable_distance(self):
         result = make_pet_care_map(
             "현재 위치",

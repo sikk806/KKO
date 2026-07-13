@@ -6,6 +6,7 @@ from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coor
 from mypet_life_mcp.core.scoring import enrich_distance, is_holiday_or_night, rank_candidates
 
 from .common import candidates_from_source, normalize_region_name, region_centroid, setup_response, source_warnings
+from .emergency_fallbacks import EMERGENCY_FALLBACK_SOURCE, emergency_hospital_fallbacks
 
 
 def find_pet_emergency_candidates(
@@ -44,6 +45,13 @@ def find_pet_emergency_candidates(
     search_region = origin.address if origin and origin.address else location_text
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
     pharmacy_result = (pharmacy_client or AnimalPharmacyClient()).search(search_region, radius)
+    original_hospital_result = hospital_result
+    fallback_warning = None
+    if not hospital_result.ok or not hospital_result.items:
+        fallback_items = emergency_hospital_fallbacks(location_text, origin)
+        if fallback_items:
+            hospital_result = type(hospital_result)(items=fallback_items, source=EMERGENCY_FALLBACK_SOURCE)
+            fallback_warning = "공공데이터 병원 조회가 실패했거나 후보가 부족해 내장 응급 연락 후보를 함께 제시합니다. 현재 진료 가능 여부는 전화 확인이 필요합니다."
     hospital_candidates = candidates_from_source(hospital_result, "동물병원")
     pharmacy_candidates = candidates_from_source(pharmacy_result, "동물약국")
     if origin:
@@ -72,7 +80,8 @@ def find_pet_emergency_candidates(
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],
         "animal_pharmacies": [candidate.to_dict() for candidate in pharmacies],
         "source_warnings_ko": ([location_warning] if location_warning else [])
-        + source_warnings(holiday_result, hospital_result, pharmacy_result),
+        + ([fallback_warning] if fallback_warning else [])
+        + source_warnings(holiday_result, original_hospital_result, pharmacy_result),
         "summary_ko": summary,
         "call_script_ko": call_script,
         "safety_note_ko": safety_note_ko(),
