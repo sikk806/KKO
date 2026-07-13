@@ -23,7 +23,7 @@ MyPet Life MCP는 반려동물 보호자가 외출, 여행, 야간/휴일 상황
 | 기상청 단기예보 | 선택 사용 | 외출 계획의 날씨 참고 | `KMA_SERVICE_KEY` |
 | 한국천문연구원 특일 정보 | 선택 사용 | 휴일/특일 참고 | `KASI_SERVICE_KEY` |
 
-별도 화학물질 DB API와 Kakao Map API는 현재 사용하지 않습니다.
+별도 화학물질 DB API와 별도 지도 API는 현재 사용하지 않습니다.
 
 ## API 발급 및 문서
 
