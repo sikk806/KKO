@@ -9,7 +9,7 @@ description = "PlayMCP-ready remote MCP server for Korean pet owner lifestyle us
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "mcp>=1.9.0",
+  "mcp>=1.9.0,<2",
 ]
 
 [project.optional-dependencies]

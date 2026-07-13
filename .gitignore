@@ -32,6 +32,7 @@ LOCAL_TESTING.md
 PLAYMCP_DEPLOY.md
 
 # Logs and runtime files
+logs/
 *.log
 *.pid
 tmp/

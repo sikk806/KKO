@@ -56,7 +56,7 @@ class BaseApiClient:
         raise MissingApiKeyError(self.service_name, env_names[0] if env_names else self.required_env)
 
     def source_error(self, exc: Exception) -> SourceResult:
-        logger.warning("source failed", extra={"service": self.service_name, "error": str(exc)})
+        logger.debug("source failed", extra={"service": self.service_name, "error": str(exc)})
         return SourceResult(items=[], source=self.service_name, ok=False, error_ko=str(exc))
 
     def get_json(self, url: str, params: dict[str, Any], headers: dict[str, str] | None = None) -> dict[str, Any]:

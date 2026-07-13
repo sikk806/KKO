@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from mypet_life_mcp.tools import (
+    check_pet_food_safety,
     find_pet_emergency_candidates,
     make_pet_care_map,
     make_pet_outing_plan,
@@ -61,6 +62,18 @@ def create_app():
         business_type: str = "unknown",
     ) -> dict:
         return verify_pet_business(business_name, region, business_type)
+
+    @mcp.tool(
+        name="check_pet_food_safety",
+        description="반려견/반려묘가 음식, 제품, 원재료를 먹어도 되는지 묻는 상황에서 외부 식품 원재료와 독성 근거 데이터를 조회합니다.",
+    )
+    def check_pet_food_safety_tool(
+        food: str,
+        pet_type: str,
+        weight_kg: float | None = None,
+        amount_gram: float | None = None,
+    ) -> dict:
+        return check_pet_food_safety(food, pet_type, weight_kg, amount_gram)
 
     return mcp
 

@@ -19,6 +19,7 @@ EXPECTED_TOOLS = {
     "make_pet_care_map",
     "make_pet_outing_plan",
     "verify_pet_business",
+    "check_pet_food_safety",
 }
 
 
@@ -28,24 +29,33 @@ def main() -> None:
     parser.add_argument("--lat", type=float, default=37.4979, help="Latitude for coordinate-based tests.")
     parser.add_argument("--lon", type=float, default=127.0276, help="Longitude for coordinate-based tests.")
     parser.add_argument("--radius-km", type=float, default=5.0, help="Search radius in kilometers.")
-    parser.add_argument("--business-name", default="펫츠힐 유치원 호텔", help="Pet business name to verify.")
+    parser.add_argument("--business-name", default="스누피펫호텔", help="Pet business name to verify.")
     parser.add_argument("--business-type", default="hotel", help="Business type for license verification.")
     args = parser.parse_args()
+    _load_dotenv(PROJECT_ROOT / ".env")
     asyncio.run(run(args))
+
+
+def _load_dotenv(path: Path) -> None:
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        if not line or line.strip().startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ[key.strip()] = value.strip()
 
 
 async def run(args: argparse.Namespace) -> None:
     env = os.environ.copy()
     pythonpath = str(PROJECT_ROOT)
     env["PYTHONPATH"] = pythonpath + os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else pythonpath
-
     server = StdioServerParameters(
         command=sys.executable,
         args=["-m", "mypet_life_mcp.server"],
         cwd=PROJECT_ROOT,
         env=env,
     )
-
     async with stdio_client(server) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -56,56 +66,67 @@ async def run(args: argparse.Namespace) -> None:
             print(json.dumps({"tools": tool_names, "missing": missing}, ensure_ascii=False, indent=2))
             if missing:
                 raise SystemExit(f"Missing MCP tools: {', '.join(missing)}")
-
-            calls = [
-                (
-                    "find_pet_emergency_candidates",
-                    {
-                        "location": args.location,
-                        "pet_type": "강아지",
-                        "situation": "구토",
-                        "radius_km": args.radius_km,
-                        "when": datetime.now().astimezone().isoformat(),
-                        "latitude": args.lat,
-                        "longitude": args.lon,
-                    },
-                ),
-                (
-                    "make_pet_care_map",
-                    {
-                        "location": args.location,
-                        "radius_km": args.radius_km,
-                        "include_pharmacies": True,
-                        "latitude": args.lat,
-                        "longitude": args.lon,
-                    },
-                ),
-                (
-                    "make_pet_outing_plan",
-                    {
-                        "location": args.location,
-                        "pet_type": "dog",
-                        "outing_type": "walk",
-                        "radius_km": args.radius_km,
-                        "when": datetime.now().astimezone().isoformat(),
-                        "latitude": args.lat,
-                        "longitude": args.lon,
-                    },
-                ),
-                (
-                    "verify_pet_business",
-                    {
-                        "business_name": args.business_name,
-                        "region": None,
-                        "business_type": args.business_type,
-                    },
-                ),
-            ]
-
-            for name, arguments in calls:
+            for name, arguments in _calls(args):
                 result = await session.call_tool(name, arguments)
                 print(f"\n=== tools/call: {name} ===")
                 print(json.dumps(_summarize_call_result(result), ensure_ascii=False, indent=2))
+
+
+def _calls(args: argparse.Namespace) -> list[tuple[str, dict[str, Any]]]:
+    now = datetime.now().astimezone().isoformat()
+    return [
+        (
+            "find_pet_emergency_candidates",
+            {
+                "location": args.location,
+                "pet_type": "강아지",
+                "situation": "구토",
+                "radius_km": args.radius_km,
+                "when": now,
+                "latitude": args.lat,
+                "longitude": args.lon,
+            },
+        ),
+        (
+            "make_pet_care_map",
+            {
+                "location": args.location,
+                "radius_km": args.radius_km,
+                "include_pharmacies": True,
+                "latitude": args.lat,
+                "longitude": args.lon,
+            },
+        ),
+        (
+            "make_pet_outing_plan",
+            {
+                "location": args.location,
+                "pet_type": "dog",
+                "outing_type": "walk",
+                "radius_km": args.radius_km,
+                "when": now,
+                "latitude": args.lat,
+                "longitude": args.lon,
+            },
+        ),
+        (
+            "verify_pet_business",
+            {
+                "business_name": args.business_name,
+                "region": None,
+                "business_type": args.business_type,
+            },
+        ),
+        (
+            "check_pet_food_safety",
+            {
+                "food": "초코 쿠키",
+                "pet_type": "dog",
+                "weight_kg": 5.0,
+                "amount_gram": 20.0,
+            },
+        ),
+    ]
 
 
 def _summarize_call_result(result: Any) -> dict[str, Any]:
@@ -122,6 +143,8 @@ def _summarize_call_result(result: Any) -> dict[str, Any]:
             value = payload.get(key)
             if isinstance(value, list):
                 summary[f"{key}_count"] = len(value)
+        if "ingredients" in payload:
+            summary["ingredients_count"] = len(payload.get("ingredients") or [])
         if "outing_score" in payload:
             summary["outing_score"] = payload["outing_score"]
         if "weather" in payload:

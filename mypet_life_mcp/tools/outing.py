@@ -20,6 +20,7 @@ from .outing_intents import (
     _outing_intent,
     OUTING_INTENT_CONTENT_TYPES,
 )
+from .outing_helpers import compact_weather, dedupe_items, filter_items_by_intent, filter_items_by_region
 
 def make_pet_outing_plan(
     location: str,
@@ -72,7 +73,7 @@ def make_pet_outing_plan(
     pharmacy_result = (pharmacy_client or AnimalPharmacyClient()).search(search_region, radius)
 
     places = [map_place(item) for item in place_result.items][:5]
-    weather = _compact_weather(weather_result.items)
+    weather = compact_weather(weather_result.items)
     hospital_candidates = candidates_from_source(hospital_result, "동물병원")
     pharmacy_candidates = candidates_from_source(pharmacy_result, "동물약국")
     if origin:
@@ -105,15 +106,6 @@ def make_pet_outing_plan(
     }
 
 
-def _compact_weather(items: list[dict]) -> dict:
-    if not items:
-        return {"rain_probability": 0, "precipitation_mm": 0}
-    item = items[0]
-    if "rain_probability" in item:
-        return item
-    return {"rain_probability": item.get("pop", 0), "precipitation_mm": item.get("pcp", 0), "temperature_c": item.get("tmp")}
-
-
 def _search_places(
     place_client: PetFriendlyPlaceClient,
     location_text: str,
@@ -130,13 +122,13 @@ def _search_places(
             keyword_result = place_client.search_keyword(keyword, content_type=content_type, rows=20)
             if keyword_result.ok:
                 keyword_items.extend(keyword_result.items)
-            deduped_so_far = _filter_items_by_intent(_dedupe_items(keyword_items), intent)
-            if len(_filter_items_by_region(deduped_so_far, location_text)) >= 5:
+            deduped_so_far = filter_items_by_intent(dedupe_items(keyword_items), intent, OUTING_INTENT_CONTENT_TYPES)
+            if len(filter_items_by_region(deduped_so_far, location_text)) >= 5:
                 break
             if len(deduped_so_far) >= 10:
                 break
-    keyword_items = _filter_items_by_intent(_dedupe_items(keyword_items), intent)
-    local_keyword_items = _filter_items_by_region(keyword_items, location_text)
+    keyword_items = filter_items_by_intent(dedupe_items(keyword_items), intent, OUTING_INTENT_CONTENT_TYPES)
+    local_keyword_items = filter_items_by_region(keyword_items, location_text)
     if local_keyword_items:
         from mypet_life_mcp.core.schemas import SourceResult
 
@@ -149,42 +141,12 @@ def _search_places(
         from mypet_life_mcp.core.schemas import SourceResult
 
         return SourceResult(
-            items=_dedupe_items(keyword_items)[:10],
+            items=dedupe_items(keyword_items)[:10],
             source=place_client.service_name,
             ok=True,
             error_ko=f"'{outing_type}'에 정확히 맞는 지역 내 후보가 부족해 활동 키워드 기준 후보를 함께 제시합니다.",
         )
     return location_result
-
-def _filter_items_by_region(items: list[dict], location_text: str) -> list[dict]:
-    province = location_text.split(" ", 1)[0]
-    filtered = []
-    for item in items:
-        address = str(item.get("addr1") or item.get("address") or "")
-        if location_text in address or province in address:
-            filtered.append(item)
-    return filtered
-
-
-def _filter_items_by_intent(items: list[dict], intent: str | None) -> list[dict]:
-    allowed = OUTING_INTENT_CONTENT_TYPES.get(intent or "")
-    if not allowed:
-        return items
-    return [item for item in items if str(item.get("contenttypeid") or "") in allowed]
-
-
-def _dedupe_items(items: list[dict]) -> list[dict]:
-    seen = set()
-    deduped = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        key = item.get("contentid") or item.get("title") or str(item)
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(item)
-    return deduped
 
 
 def _empty_source(source: str, error_ko: str):
