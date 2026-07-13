@@ -94,6 +94,13 @@ def make_pet_outing_plan(
     pharmacy_result = (pharmacy_client or AnimalPharmacyClient()).search(search_region, radius)
 
     places = [map_place(item) for item in place_result.items][:5]
+    place_fallback_warning = None
+    if not places and origin:
+        places = _fallback_outing_places(location_text, origin, outing_type)
+        place_fallback_warning = (
+            "반려동물 동반 장소 후보가 부족해 위치 기반 대체 코스를 제시합니다. "
+            "방문 전 반려동물 동반 가능 여부를 확인해 주세요."
+        )
     weather = compact_weather(weather_result.items)
     hospital_candidates = candidates_from_source(hospital_result, "동물병원")
     pharmacy_candidates = candidates_from_source(pharmacy_result, "동물약국")
@@ -124,6 +131,7 @@ def make_pet_outing_plan(
         },
         "cautions_ko": cautions + [confirmation_note_ko()],
         "source_warnings_ko": ([location_warning] if location_warning else [])
+        + ([place_fallback_warning] if place_fallback_warning else [])
         + source_warnings(place_result, weather_result, hospital_result, pharmacy_result),
         "summary_ko": f"{location_text} 주변 반려동물 동반 외출 계획을 정리했습니다. 외출 적합도는 {score}점입니다.",
         "safety_note_ko": safety_note_ko(),
@@ -177,6 +185,36 @@ def _empty_source(source: str, error_ko: str):
     from mypet_life_mcp.core.schemas import SourceResult
 
     return SourceResult(items=[], source=source, ok=False, error_ko=error_ko)
+
+
+def _fallback_outing_places(location_text: str, origin: GeoPoint, outing_type: str | None) -> list[dict]:
+    if "가평" in location_text:
+        return [
+            {
+                "name": "자라섬 일대",
+                "address": "경기도 가평군 가평읍 자라섬로 60",
+                "phone": "",
+                "pet_policy": "야외 산책 후보입니다. 구역별 반려동물 동반 조건은 방문 전 확인해 주세요.",
+                "source": "위치 기반 대체 후보",
+            },
+            {
+                "name": "가평역 주변 산책로",
+                "address": "경기도 가평군 가평읍 문화로 13-42 주변",
+                "phone": "",
+                "pet_policy": "역 주변 이동 동선 후보입니다. 목줄 착용과 현장 안내를 확인해 주세요.",
+                "source": "위치 기반 대체 후보",
+            },
+        ]
+    label = outing_type or "산책"
+    return [
+        {
+            "name": f"{location_text} {label} 후보",
+            "address": origin.address or location_text,
+            "phone": "",
+            "pet_policy": "위치 기준 대체 후보입니다. 반려동물 동반 가능 여부는 방문 전 확인해 주세요.",
+            "source": "위치 기반 대체 후보",
+        }
+    ]
 
 
 def _score_label(score: int) -> str:

@@ -148,11 +148,9 @@ class ToolTests(unittest.TestCase):
         self.assertIn("부평대로 138", result["animal_hospitals"][0]["address"])
         self.assertTrue(any("전화 확인" in warning for warning in result["source_warnings_ko"]))
 
-    def test_bupyeong_city_hall_alias_does_not_match_seoul_city_hall(self):
+    def test_unknown_station_name_asks_user_to_check_station(self):
         origin = region_centroid("부평시청역")
-        self.assertIsNotNone(origin)
-        self.assertIn("부평구청", origin.label)
-        self.assertIn("인천", origin.address)
+        self.assertIsNone(origin)
 
         result = find_pet_emergency_candidates(
             "부평시청역",
@@ -161,8 +159,21 @@ class ToolTests(unittest.TestCase):
             pharmacy_client=FakeSourceClient([]),
             holiday_client=FakeHoliday(False),
         )
-        self.assertEqual(result["animal_hospitals"][0]["name"], "24시부평종합동물의료센터")
-        self.assertNotIn("서울특별시", result["animal_hospitals"][0]["address"])
+        self.assertEqual(result["status"], "invalid_request")
+        self.assertIn("역명을 다시 확인", result["summary_ko"])
+
+    def test_ulsan_emergency_fallback_when_hospital_source_is_empty(self):
+        result = find_pet_emergency_candidates(
+            "울산",
+            when="now",
+            hospital_client=FakeSourceClient([]),
+            pharmacy_client=FakeSourceClient([]),
+            holiday_client=FakeHoliday(False),
+        )
+        names = [item["name"] for item in result["animal_hospitals"]]
+        phones = [item["phone"] for item in result["animal_hospitals"]]
+        self.assertIn("울산에스동물메디컬센터", names)
+        self.assertIn("052-707-2475", phones)
 
     def test_empty_location_uses_auto_default(self):
         result = make_pet_outing_plan(
@@ -176,6 +187,19 @@ class ToolTests(unittest.TestCase):
         self.assertNotEqual(result.get("status"), "invalid_request")
         self.assertTrue(result["location_defaulted"])
         self.assertTrue(any("자동 추천 지역" in warning for warning in result["source_warnings_ko"]))
+
+    def test_outing_plan_uses_location_fallback_places_when_place_source_is_empty(self):
+        result = make_pet_outing_plan(
+            "가평",
+            outing_type="놀러갈곳",
+            place_client=FakeSourceClient([]),
+            weather_client=FakeWeather(self.weather),
+            hospital_client=FakeSourceClient([]),
+            pharmacy_client=FakeSourceClient([]),
+        )
+        self.assertTrue(result["pet_friendly_places"])
+        self.assertEqual(result["pet_friendly_places"][0]["name"], "자라섬 일대")
+        self.assertTrue(any("위치 기반 대체 코스" in warning for warning in result["source_warnings_ko"]))
 
     def test_provided_coordinates_enable_distance(self):
         result = make_pet_care_map(
@@ -240,6 +264,10 @@ class ToolTests(unittest.TestCase):
     def test_region_centroid_and_outing_type_mapping(self):
         self.assertIsNotNone(region_centroid("서울 양천"))
         self.assertIsNotNone(region_centroid("부산 해운대"))
+        gapyeong = region_centroid("가평")
+        self.assertIsNotNone(gapyeong)
+        self.assertEqual(gapyeong.address, "경기도 가평군")
+        self.assertAlmostEqual(gapyeong.latitude, 37.8315, places=3)
         self.assertEqual(_content_type_for_outing("점심 식사"), "39")
         self.assertEqual(_content_type_for_outing("펜션 숙소"), "32")
         self.assertEqual(_content_type_for_outing("산책 놀이"), "12")

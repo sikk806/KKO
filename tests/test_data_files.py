@@ -39,6 +39,7 @@ class DataFileTests(unittest.TestCase):
         self.assertIn("서울", keywords)
         self.assertIn("해운대", keywords)
         self.assertIn("부평구청", keywords)
+        self.assertIn("울산", keywords)
         hospitals = [hospital for group in data["groups"] for hospital in group["hospitals"]]
         self.assertTrue(hospitals)
         for hospital in hospitals:

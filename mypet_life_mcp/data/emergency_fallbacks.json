@@ -92,6 +92,36 @@
           "phone": ""
         }
       ]
+    },
+    {
+      "keywords": [
+        "울산",
+        "울산시",
+        "학성"
+      ],
+      "hospitals": [
+        {
+          "address": "울산광역시 남구",
+          "business_status": "전화 확인 필요",
+          "license_type": "동물병원",
+          "name": "울산에스동물메디컬센터",
+          "phone": "052-707-2475"
+        },
+        {
+          "address": "울산광역시 남구",
+          "business_status": "전화 확인 필요",
+          "license_type": "동물병원",
+          "name": "이승진동물의료센터",
+          "phone": "052-258-2516"
+        },
+        {
+          "address": "울산광역시 중구",
+          "business_status": "전화 확인 필요",
+          "license_type": "동물병원",
+          "name": "24시학성동물의료센터",
+          "phone": "052-700-6000"
+        }
+      ]
     }
   ],
   "source": "내장 응급 연락 후보(전화 확인 필요)"

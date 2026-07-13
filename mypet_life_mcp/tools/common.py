@@ -16,6 +16,7 @@ DEFAULT_LOCATION_CHOICES = (
     "대전광역시",
 )
 EMPTY_LOCATION_HINTS = {"", "어디든", "아무데나", "랜덤", "상관없어", "장소없음", "지역없음"}
+STATION_QUERY_SUFFIXES = ("근처", "주변", "인근", "부근", "앞", "쪽", "에서", "으로", "까지")
 
 
 def resolve_location_text(location: Any) -> tuple[str, bool]:
@@ -27,6 +28,8 @@ def resolve_location_text(location: Any) -> tuple[str, bool]:
     compact = text.replace(" ", "").lower()
     if compact in EMPTY_LOCATION_HINTS:
         return _default_location(), True
+    if _looks_like_unknown_station(text):
+        raise ValidationError(f"'{text}' 역명을 찾을 수 없습니다. 역명을 다시 확인해 주세요.")
     return normalize_region_name(text), False
 
 
@@ -37,6 +40,15 @@ def default_location_warning(location: str, action_ko: str) -> str:
 def _default_location() -> str:
     index = datetime.now(KST).timetuple().tm_yday % len(DEFAULT_LOCATION_CHOICES)
     return DEFAULT_LOCATION_CHOICES[index]
+
+
+def _looks_like_unknown_station(location: str) -> bool:
+    compact = location.replace(" ", "")
+    for suffix in STATION_QUERY_SUFFIXES:
+        if compact.endswith(suffix):
+            compact = compact[: -len(suffix)]
+            break
+    return compact.endswith("역") and station_centroid(location) is None
 
 
 def normalize_region_name(location: str) -> str:

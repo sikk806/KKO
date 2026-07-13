@@ -21,15 +21,10 @@ CITY_ALIASES = {
 }
 
 LOCATION_SUFFIXES = ("근처", "주변", "인근", "부근", "앞", "쪽", "에서", "으로", "까지")
-QUERY_ALIASES = {
-    "부평시청역": "부평구청역",
-    "부평시청": "부평구청역",
-}
 
 
 def station_centroid(location: str) -> GeoPoint | None:
     query = _compact(location)
-    query = QUERY_ALIASES.get(query, query)
     if not query:
         return None
 
@@ -57,13 +52,14 @@ def _stations() -> tuple[dict[str, Any], ...]:
 def _score_station(query: str, station: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     aliases = sorted((str(alias) for alias in station.get("aliases", [])), key=len, reverse=True)
     score = 0
+    context = _context_score(query, station)
     for alias in aliases:
         alias_key = _compact(alias)
         if not alias_key:
             continue
         if query == alias_key or _strip_location_suffix(query) == alias_key:
             score = max(score, 100 + len(alias_key))
-        elif "역" in query and alias_key.endswith("역") and alias_key in query:
+        elif context > 0 and "역" in query and alias_key.endswith("역") and alias_key in query:
             score = max(score, 70 + len(alias_key))
         elif "역" not in query and query.endswith(alias_key):
             score = max(score, 45 + len(alias_key))
@@ -71,7 +67,7 @@ def _score_station(query: str, station: dict[str, Any]) -> tuple[int, dict[str, 
     if score <= 0:
         return 0, station
 
-    score += _context_score(query, station)
+    score += context
     return score, station
 
 
