@@ -8,15 +8,15 @@ from mypet_life_mcp.core.schemas import (
     optional_coordinate,
     parse_when_options,
     positive_radius,
-    require_text,
 )
 from mypet_life_mcp.core.scoring import enrich_distance, is_holiday_or_night, rank_candidates
 
 from .common import (
     candidates_from_source,
+    default_location_warning,
     location_basis_warning,
-    normalize_region_name,
     region_centroid,
+    resolve_location_text,
     search_region_for_origin,
     source_warnings,
 )
@@ -24,7 +24,7 @@ from .emergency_fallbacks import EMERGENCY_FALLBACK_SOURCE, emergency_hospital_f
 
 
 def find_pet_emergency_candidates(
-    location: str,
+    location: str | None = None,
     pet_type: str | None = None,
     situation: str | None = None,
     radius_km: float | None = 5.0,
@@ -36,7 +36,7 @@ def find_pet_emergency_candidates(
     holiday_client: HolidayClient | None = None,
 ) -> dict:
     try:
-        location_text = normalize_region_name(require_text(location, "location"))
+        location_text, defaulted_location = resolve_location_text(location)
         radius = positive_radius(radius_km)
         moments = parse_when_options(when)
         moment = moments[0]
@@ -50,7 +50,11 @@ def find_pet_emergency_candidates(
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
         origin = region_centroid(location_text)
-        location_warning = location_basis_warning(location_text, origin, "후보를 정리합니다.")
+        location_warning = (
+            default_location_warning(location_text, "후보를 정리합니다.")
+            if defaulted_location
+            else location_basis_warning(location_text, origin, "후보를 정리합니다.")
+        )
 
     holiday_api = holiday_client or HolidayClient()
     holiday_results = [holiday_api.check(item.date()) for item in moments]
@@ -89,6 +93,7 @@ def find_pet_emergency_candidates(
         "mode": mode,
         "location": location_text,
         "resolved_location": origin.address if origin else None,
+        "location_defaulted": defaulted_location,
         "resolved_when": moment.isoformat(),
         "resolved_when_options": [item.isoformat() for item in moments],
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),

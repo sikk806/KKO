@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient
 from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
-from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, ValidationError, optional_coordinate, positive_radius, require_text
+from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, ValidationError, optional_coordinate, positive_radius
 from mypet_life_mcp.core.scoring import enrich_distance, rank_candidates
 
 from .common import (
     candidates_from_source,
+    default_location_warning,
     location_basis_warning,
-    normalize_region_name,
     region_centroid,
+    resolve_location_text,
     search_region_for_origin,
     source_warnings,
 )
@@ -17,7 +18,7 @@ from .emergency_fallbacks import EMERGENCY_FALLBACK_SOURCE, emergency_hospital_f
 
 
 def make_pet_care_map(
-    location: str,
+    location: str | None = None,
     radius_km: float | None = 5.0,
     include_pharmacies: bool = True,
     latitude: float | None = None,
@@ -26,7 +27,7 @@ def make_pet_care_map(
     pharmacy_client: AnimalPharmacyClient | None = None,
 ) -> dict:
     try:
-        location_text = normalize_region_name(require_text(location, "location"))
+        location_text, defaulted_location = resolve_location_text(location)
         radius = positive_radius(radius_km)
         lat = optional_coordinate(latitude, "latitude", -90, 90)
         lon = optional_coordinate(longitude, "longitude", -180, 180)
@@ -37,7 +38,11 @@ def make_pet_care_map(
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
         origin = region_centroid(location_text)
-        location_warning = location_basis_warning(location_text, origin, "후보를 정리합니다.")
+        location_warning = (
+            default_location_warning(location_text, "후보를 정리합니다.")
+            if defaulted_location
+            else location_basis_warning(location_text, origin, "후보를 정리합니다.")
+        )
 
     search_region = search_region_for_origin(origin, location_text)
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
@@ -72,6 +77,7 @@ def make_pet_care_map(
         "mode": "pet_care_map",
         "location": location_text,
         "resolved_location": origin.address if origin else None,
+        "location_defaulted": defaulted_location,
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),
         "radius_km": radius,
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],

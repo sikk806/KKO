@@ -1,11 +1,43 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from mypet_life_mcp.core.schemas import Candidate, GeoPoint, SourceResult
+from mypet_life_mcp.core.schemas import Candidate, GeoPoint, KST, SourceResult, ValidationError
 
 from .region_data import PROVINCE_ALIASES, REGION_CENTROIDS, SIGUNGU_BY_PROVINCE, SIGUNGU_SUFFIXES
 from .station_locations import station_centroid
+
+DEFAULT_LOCATION_CHOICES = (
+    "서울특별시",
+    "부산광역시 해운대구",
+    "인천광역시 부평구",
+    "제주특별자치도 제주시",
+    "대전광역시",
+)
+EMPTY_LOCATION_HINTS = {"", "어디든", "아무데나", "랜덤", "상관없어", "장소없음", "지역없음"}
+
+
+def resolve_location_text(location: Any) -> tuple[str, bool]:
+    if location is None:
+        return _default_location(), True
+    if not isinstance(location, str):
+        raise ValidationError("location 값이 필요합니다.")
+    text = " ".join(location.strip().split())
+    compact = text.replace(" ", "").lower()
+    if compact in EMPTY_LOCATION_HINTS:
+        return _default_location(), True
+    return normalize_region_name(text), False
+
+
+def default_location_warning(location: str, action_ko: str) -> str:
+    return f"장소가 지정되지 않아 자동 추천 지역 '{location}' 기준으로 {action_ko}"
+
+
+def _default_location() -> str:
+    index = datetime.now(KST).timetuple().tm_yday % len(DEFAULT_LOCATION_CHOICES)
+    return DEFAULT_LOCATION_CHOICES[index]
+
 
 def normalize_region_name(location: str) -> str:
     text = " ".join(location.strip().split())

@@ -21,10 +21,15 @@ CITY_ALIASES = {
 }
 
 LOCATION_SUFFIXES = ("근처", "주변", "인근", "부근", "앞", "쪽", "에서", "으로", "까지")
+QUERY_ALIASES = {
+    "부평시청역": "부평구청역",
+    "부평시청": "부평구청역",
+}
 
 
 def station_centroid(location: str) -> GeoPoint | None:
     query = _compact(location)
+    query = QUERY_ALIASES.get(query, query)
     if not query:
         return None
 

@@ -148,6 +148,35 @@ class ToolTests(unittest.TestCase):
         self.assertIn("부평대로 138", result["animal_hospitals"][0]["address"])
         self.assertTrue(any("전화 확인" in warning for warning in result["source_warnings_ko"]))
 
+    def test_bupyeong_city_hall_alias_does_not_match_seoul_city_hall(self):
+        origin = region_centroid("부평시청역")
+        self.assertIsNotNone(origin)
+        self.assertIn("부평구청", origin.label)
+        self.assertIn("인천", origin.address)
+
+        result = find_pet_emergency_candidates(
+            "부평시청역",
+            when="now",
+            hospital_client=FakeSourceClient([]),
+            pharmacy_client=FakeSourceClient([]),
+            holiday_client=FakeHoliday(False),
+        )
+        self.assertEqual(result["animal_hospitals"][0]["name"], "24시부평종합동물의료센터")
+        self.assertNotIn("서울특별시", result["animal_hospitals"][0]["address"])
+
+    def test_empty_location_uses_auto_default(self):
+        result = make_pet_outing_plan(
+            "",
+            outing_type="산책",
+            place_client=FakeSourceClient(self.places),
+            weather_client=FakeWeather(self.weather),
+            hospital_client=FakeSourceClient(self.hospitals),
+            pharmacy_client=FakeSourceClient(self.pharmacies),
+        )
+        self.assertNotEqual(result.get("status"), "invalid_request")
+        self.assertTrue(result["location_defaulted"])
+        self.assertTrue(any("자동 추천 지역" in warning for warning in result["source_warnings_ko"]))
+
     def test_provided_coordinates_enable_distance(self):
         result = make_pet_care_map(
             "현재 위치",

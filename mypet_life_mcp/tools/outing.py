@@ -13,16 +13,16 @@ from mypet_life_mcp.core.schemas import (
     optional_coordinate,
     parse_when_options,
     positive_radius,
-    require_text,
 )
 from mypet_life_mcp.core.scoring import enrich_distance, outing_score, rank_candidates
 
 from .common import (
     candidates_from_source,
+    default_location_warning,
     location_basis_warning,
     map_place,
-    normalize_region_name,
     region_centroid,
+    resolve_location_text,
     search_region_for_origin,
     source_warnings,
 )
@@ -42,7 +42,7 @@ MAX_KEYWORD_SEARCHES = 2
 
 
 def make_pet_outing_plan(
-    location: str,
+    location: str | None = None,
     pet_type: str | None = "dog",
     outing_type: str | None = None,
     radius_km: float | None = 5.0,
@@ -55,7 +55,7 @@ def make_pet_outing_plan(
     pharmacy_client: AnimalPharmacyClient | None = None,
 ) -> dict:
     try:
-        location_text = normalize_region_name(require_text(location, "location"))
+        location_text, defaulted_location = resolve_location_text(location)
         radius = positive_radius(radius_km)
         moments = parse_when_options(when)
         moment = moments[0]
@@ -69,7 +69,11 @@ def make_pet_outing_plan(
         origin = GeoPoint(label=location_text, latitude=lat, longitude=lon, address=location_text)
     else:
         origin = region_centroid(location_text)
-        location_warning = location_basis_warning(location_text, origin, "외출 계획을 만듭니다.")
+        location_warning = (
+            default_location_warning(location_text, "외출 계획을 만듭니다.")
+            if defaulted_location
+            else location_basis_warning(location_text, origin, "외출 계획을 만듭니다.")
+        )
 
     if origin:
         place_api = place_client or PetFriendlyPlaceClient()
@@ -103,6 +107,7 @@ def make_pet_outing_plan(
         "mode": "pet_outing_plan",
         "location": location_text,
         "resolved_location": origin.address if origin else None,
+        "location_defaulted": defaulted_location,
         "resolved_when": moment.isoformat(),
         "resolved_when_options": [item.isoformat() for item in moments],
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),

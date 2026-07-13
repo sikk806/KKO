@@ -41,7 +41,7 @@ def create_app():
         annotations=read_only_tool("Find pet emergency contact candidates"),
     )
     def find_pet_emergency_candidates_tool(
-        location: str,
+        location: str = "",
         pet_type: str | None = None,
         situation: str | None = None,
         radius_km: float = 5.0,
@@ -60,7 +60,7 @@ def create_app():
         annotations=read_only_tool("Make a pet care candidate map"),
     )
     def make_pet_care_map_tool(
-        location: str,
+        location: str = "",
         radius_km: float = 5.0,
         include_pharmacies: bool = True,
         latitude: float | None = None,
@@ -77,7 +77,7 @@ def create_app():
         annotations=read_only_tool("Make a pet outing plan"),
     )
     def make_pet_outing_plan_tool(
-        location: str,
+        location: str = "",
         pet_type: str = "dog",
         outing_type: str | None = None,
         radius_km: float = 5.0,
