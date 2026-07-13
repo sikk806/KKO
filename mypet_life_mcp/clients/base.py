@@ -33,9 +33,12 @@ class MissingApiKeyError(RuntimeError):
 
 @dataclass(frozen=True)
 class ApiSettings:
-    timeout_seconds: float = 5.0
-    retries: int = 2
+    timeout_seconds: float = 0.45
+    retries: int = 0
     backoff_seconds: float = 0.25
+
+
+_JSON_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
 class BaseApiClient:
@@ -44,7 +47,7 @@ class BaseApiClient:
 
     def __init__(self, api_key: str | None = None, settings: ApiSettings | None = None):
         self.api_key = api_key
-        self.settings = settings or ApiSettings()
+        self.settings = settings or _settings_from_env()
 
     def get_key(self, *env_names: str) -> str:
         if self.api_key:
@@ -62,13 +65,18 @@ class BaseApiClient:
     def get_json(self, url: str, params: dict[str, Any], headers: dict[str, str] | None = None) -> dict[str, Any]:
         query = urlencode({key: value for key, value in params.items() if value is not None})
         full_url = f"{url}?{query}" if query else url
+        cached = _cache_get(full_url)
+        if cached is not None:
+            return cached
         last_error: Exception | None = None
         for attempt in range(self.settings.retries + 1):
             try:
                 request = Request(full_url, headers=headers or {})
                 with urlopen(request, timeout=self.settings.timeout_seconds) as response:
                     payload = response.read().decode("utf-8")
-                return json.loads(payload)
+                data = json.loads(payload)
+                _cache_set(full_url, data)
+                return data
             except HTTPError as exc:
                 last_error = RuntimeError(self._http_error_message(exc))
                 if attempt < self.settings.retries:
@@ -124,3 +132,48 @@ def normalize_service_key(value: str) -> str:
     if "%" in stripped:
         return unquote(stripped)
     return stripped
+
+
+def _settings_from_env() -> ApiSettings:
+    return ApiSettings(
+        timeout_seconds=_float_env("MYPET_API_TIMEOUT_SECONDS", 0.45),
+        retries=_int_env("MYPET_API_RETRIES", 0),
+        backoff_seconds=_float_env("MYPET_API_BACKOFF_SECONDS", 0.25),
+    )
+
+
+def _cache_get(key: str) -> dict[str, Any] | None:
+    ttl = _float_env("MYPET_API_CACHE_TTL_SECONDS", 30.0)
+    if ttl <= 0:
+        return None
+    item = _JSON_CACHE.get(key)
+    if not item:
+        return None
+    expires_at, value = item
+    if expires_at < time.monotonic():
+        _JSON_CACHE.pop(key, None)
+        return None
+    return value
+
+
+def _cache_set(key: str, value: dict[str, Any]) -> None:
+    ttl = _float_env("MYPET_API_CACHE_TTL_SECONDS", 30.0)
+    if ttl <= 0:
+        return
+    if len(_JSON_CACHE) > 256:
+        _JSON_CACHE.clear()
+    _JSON_CACHE[key] = (time.monotonic() + ttl, value)
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        return max(0, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default

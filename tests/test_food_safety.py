@@ -32,6 +32,21 @@ class FakeFoodClient:
         return SourceResult([{"RPRSNT_RAWMTRL_NM": ingredient, "RAWMTRL_NCKNM": "", "ENG_NM": None}], "Food Safety Korea I2520")
 
 
+class CountingFoodClient(FakeFoodClient):
+    def __init__(self, product=None, normalized=None, ok=True):
+        super().__init__(product, normalized, ok)
+        self.product_calls = 0
+        self.normalize_calls = 0
+
+    def search_product(self, food):
+        self.product_calls += 1
+        return super().search_product(food)
+
+    def normalize_ingredient(self, ingredient):
+        self.normalize_calls += 1
+        return super().normalize_ingredient(ingredient)
+
+
 class FoodSafetyToolTests(unittest.TestCase):
     def test_dog_alias_normalizes(self):
         self.assertEqual(_call(pet_type="강아지")["pet_type"], "dog")
@@ -82,6 +97,13 @@ class FoodSafetyToolTests(unittest.TestCase):
         self.assertIn("오이는 강아지에게 좋은 간식으로 볼 수 있는 음식입니다", result["summary_ko"])
         self.assertIn("좋은 음식이어도 너무 많이 먹으면", result["summary_ko"])
         self.assertNotIn("강아지에게 오이 줘도 돼?는", result["summary_ko"])
+
+    def test_reference_match_skips_food_api(self):
+        client = CountingFoodClient(ok=False)
+        result = _call(food="강아지 오이 먹어도 돼?", food_client=client)
+        self.assertEqual(result["status"], "evidence_collected")
+        self.assertEqual(client.product_calls, 0)
+        self.assertEqual(client.normalize_calls, 0)
 
     def test_salmon_is_ok_for_cat(self):
         result = _call(food="고양이는 연어 먹어도 되나?", pet_type="cat", food_client=FakeFoodClient(product=[]))
@@ -146,8 +168,10 @@ class FoodSafetyToolTests(unittest.TestCase):
         self.assertIn("인터넷으로 추가 확인하거나 동물병원에 문의", result["summary_ko"])
 
     def test_secondary_danger_can_drive_summary(self):
-        result = _call(food="쿠키", food_client=FakeFoodClient(product=[{"RAWMTRL_NM": "밀가루, 코코아분말, 설탕"}]))
+        client = CountingFoodClient(product=[{"RAWMTRL_NM": "밀가루, 코코아분말, 설탕"}])
+        result = _call(food="쿠키", food_client=client)
         self.assertIn("쿠키는 강아지에게 먹이면 안 되거나 위험할 수 있는 음식", result["summary_ko"])
+        self.assertEqual(client.product_calls, 1)
 
     def test_short_alias_does_not_match_inside_unrelated_word(self):
         product = [{"RAWMTRL_NM": "아세설팜칼륨, 효모추출물"}]
@@ -156,7 +180,7 @@ class FoodSafetyToolTests(unittest.TestCase):
 
     def test_food_key_missing_warns_but_reference_still_works(self):
         result = _call(food="초콜릿", food_client=FakeFoodClient(ok=False))
-        self.assertTrue(result["source_warnings_ko"])
+        self.assertEqual(result["source_warnings_ko"], [])
         self.assertEqual(result["ingredients"][0]["evidence_status"], "SPECIES_REFERENCE_FOUND")
 
     def test_positive_weight_and_amount(self):

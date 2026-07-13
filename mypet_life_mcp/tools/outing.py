@@ -22,6 +22,10 @@ from .outing_intents import (
 )
 from .outing_helpers import compact_weather, dedupe_items, filter_items_by_intent, filter_items_by_region
 
+
+MAX_KEYWORD_SEARCHES = 2
+
+
 def make_pet_outing_plan(
     location: str,
     pet_type: str | None = "dog",
@@ -118,8 +122,8 @@ def _search_places(
     intent = _outing_intent(outing_type)
     keyword_items = []
     if intent and hasattr(place_client, "search_keyword"):
-        for keyword in _keywords_for_outing(outing_type, intent):
-            keyword_result = place_client.search_keyword(keyword, content_type=content_type, rows=20)
+        for keyword in _keywords_for_outing(outing_type, intent)[:MAX_KEYWORD_SEARCHES]:
+            keyword_result = place_client.search_keyword(keyword, content_type=content_type, rows=8)
             if keyword_result.ok:
                 keyword_items.extend(keyword_result.items)
             deduped_so_far = filter_items_by_intent(dedupe_items(keyword_items), intent, OUTING_INTENT_CONTENT_TYPES)

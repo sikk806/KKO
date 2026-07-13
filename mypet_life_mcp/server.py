@@ -14,6 +14,7 @@ from mypet_life_mcp.tools import (
 def create_app():
     try:
         from mcp.server.fastmcp import FastMCP
+        from mcp.types import ToolAnnotations
     except ImportError as exc:
         raise RuntimeError("MCP 서버 실행에는 mcp 패키지가 필요합니다. `pip install -e .` 후 다시 실행해 주세요.") from exc
 
@@ -21,7 +22,24 @@ def create_app():
     port = int(os.getenv("PORT", "8000"))
     mcp = FastMCP("MyPet Life MCP", host=host, port=port, streamable_http_path="/mcp")
 
-    @mcp.tool(name="find_pet_emergency_candidates", description="휴일/야간/주말 반려동물 응급 연락 후보를 한국어로 정리합니다.")
+    def read_only_tool(title: str) -> ToolAnnotations:
+        return ToolAnnotations(
+            title=title,
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=True,
+        )
+
+    @mcp.tool(
+        name="find_pet_emergency_candidates",
+        description=(
+            "MyPet Life finds candidate pet emergency contacts for nights, weekends, "
+            "and holidays in Korea. It returns cautious Korean guidance and asks users "
+            "to confirm availability by phone."
+        ),
+        annotations=read_only_tool("Find pet emergency contact candidates"),
+    )
     def find_pet_emergency_candidates_tool(
         location: str,
         pet_type: str | None = None,
@@ -33,7 +51,14 @@ def create_app():
     ) -> dict:
         return find_pet_emergency_candidates(location, pet_type, situation, radius_km, when, latitude, longitude)
 
-    @mcp.tool(name="make_pet_care_map", description="외출/여행 위치 주변 동물병원과 동물약국 후보 지도를 한국어로 만듭니다.")
+    @mcp.tool(
+        name="make_pet_care_map",
+        description=(
+            "MyPet Life builds a pet-care candidate map around an outing or travel "
+            "location in Korea, including animal hospitals and optional animal pharmacies."
+        ),
+        annotations=read_only_tool("Make a pet care candidate map"),
+    )
     def make_pet_care_map_tool(
         location: str,
         radius_km: float = 5.0,
@@ -43,7 +68,14 @@ def create_app():
     ) -> dict:
         return make_pet_care_map(location, radius_km, include_pharmacies, latitude, longitude)
 
-    @mcp.tool(name="make_pet_outing_plan", description="반려동물 동반 장소, 날씨, 돌봄 연락처를 묶어 외출 계획을 한국어로 제안합니다.")
+    @mcp.tool(
+        name="make_pet_outing_plan",
+        description=(
+            "MyPet Life suggests a Korean pet outing plan by combining pet-friendly "
+            "place candidates, weather context, and nearby care contacts."
+        ),
+        annotations=read_only_tool("Make a pet outing plan"),
+    )
     def make_pet_outing_plan_tool(
         location: str,
         pet_type: str = "dog",
@@ -55,7 +87,14 @@ def create_app():
     ) -> dict:
         return make_pet_outing_plan(location, pet_type, outing_type, radius_km, when, latitude, longitude)
 
-    @mcp.tool(name="verify_pet_business", description="반려동물 관련 업체의 공식 인허가 후보를 한국어로 확인합니다.")
+    @mcp.tool(
+        name="verify_pet_business",
+        description=(
+            "MyPet Life verifies pet-related business license candidates against "
+            "official public-data records and returns cautious Korean guidance."
+        ),
+        annotations=read_only_tool("Verify pet business license candidates"),
+    )
     def verify_pet_business_tool(
         business_name: str,
         region: str | None = None,
@@ -65,7 +104,12 @@ def create_app():
 
     @mcp.tool(
         name="check_pet_food_safety",
-        description="반려견/반려묘가 음식, 제품, 원재료를 먹어도 되는지 묻는 상황에서 외부 식품 원재료와 독성 근거 데이터를 조회합니다.",
+        description=(
+            "MyPet Life checks whether a dog or cat may need caution after eating a "
+            "food, product, or ingredient by combining local pet-food references with "
+            "food ingredient lookup when available."
+        ),
+        annotations=read_only_tool("Check pet food safety"),
     )
     def check_pet_food_safety_tool(
         food: str,

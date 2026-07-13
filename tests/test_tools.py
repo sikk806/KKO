@@ -17,6 +17,18 @@ from mypet_life_mcp.tools.outing import _content_type_for_outing, _outing_intent
 from tests.helpers import FakeHoliday, FakeSourceClient, FakeWeather, load_fixture
 
 
+class CountingPlaceClient(FakeSourceClient):
+    service_name = "test place"
+
+    def __init__(self, items):
+        super().__init__(items)
+        self.keyword_calls = 0
+
+    def search_keyword(self, *args, **kwargs):
+        self.keyword_calls += 1
+        return SourceResult(items=[], source=self.service_name)
+
+
 class ToolTests(unittest.TestCase):
     def setUp(self):
         self.hospitals = load_fixture("hospital_candidates.json")
@@ -169,6 +181,19 @@ class ToolTests(unittest.TestCase):
         self.assertIn("외출 적합도", result["summary_ko"])
         self.assertGreaterEqual(result["outing_score"], 0)
         self.assert_korean_safe(result)
+
+    def test_outing_keyword_search_is_limited(self):
+        place_client = CountingPlaceClient(self.places)
+        result = make_pet_outing_plan(
+            "강남",
+            outing_type="강아지랑 물놀이",
+            place_client=place_client,
+            weather_client=FakeWeather(self.weather),
+            hospital_client=FakeSourceClient(self.hospitals),
+            pharmacy_client=FakeSourceClient(self.pharmacies),
+        )
+        self.assertLessEqual(place_client.keyword_calls, 2)
+        self.assertIn("summary_ko", result)
 
     def test_business_verification_statuses(self):
         verified = verify_pet_business("해피펫호텔", "강남", "hotel", license_client=FakeSourceClient(self.licenses))
