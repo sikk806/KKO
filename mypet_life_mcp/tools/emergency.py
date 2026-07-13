@@ -79,6 +79,7 @@ def find_pet_emergency_candidates(
         "mode": mode,
         "location": location_text,
         "resolved_location": origin.address if origin else None,
+        "resolved_when": moment.isoformat(),
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),
         "is_holiday_or_night": night_mode,
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],

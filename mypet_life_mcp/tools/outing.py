@@ -95,6 +95,7 @@ def make_pet_outing_plan(
         "mode": "pet_outing_plan",
         "location": location_text,
         "resolved_location": origin.address if origin else None,
+        "resolved_when": moment.isoformat(),
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),
         "pet_type": pet_type or "dog",
         "outing_type": outing_type,

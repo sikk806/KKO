@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -90,15 +90,28 @@ def optional_coordinate(value: Any, field_name: str, minimum: float, maximum: fl
     return coordinate
 
 
-def parse_when(value: str | None) -> datetime:
+def parse_when(value: str | None, now: datetime | None = None) -> datetime:
+    base = _kst_now(now)
     if not value:
-        return datetime.now(KST)
+        return base
     natural = value.strip().lower()
+    compact = natural.replace(" ", "")
     if natural in {"now", "current", "today", "지금", "현재", "오늘"}:
-        return datetime.now(KST)
-    if natural in {"tonight", "야간", "오늘 밤", "오늘밤"}:
-        today = datetime.now(KST).date()
-        return datetime.combine(today, time(hour=21), tzinfo=KST)
+        return base
+    if compact in {"tonight", "야간", "오늘밤"}:
+        return datetime.combine(base.date(), time(hour=21), tzinfo=KST)
+    if compact in {"tomorrow", "내일"}:
+        return datetime.combine(base.date() + timedelta(days=1), time(hour=12), tzinfo=KST)
+    if compact in {"모레"}:
+        return datetime.combine(base.date() + timedelta(days=2), time(hour=12), tzinfo=KST)
+    if "주말" in compact or compact in {"weekend"}:
+        hour = 21 if _has_night_hint(compact) else 12
+        skip_this_week = "다음" in compact or "next" in compact
+        return _next_weekday(base, 5, hour=hour, include_today=not skip_this_week)
+    if _has_weekday_hint(compact, "saturday", "토요일", "토욜"):
+        return _next_weekday(base, 5, hour=21 if _has_night_hint(compact) else 12)
+    if _has_weekday_hint(compact, "sunday", "일요일", "일욜"):
+        return _next_weekday(base, 6, hour=21 if _has_night_hint(compact) else 12)
     try:
         normalized = value.replace("Z", "+00:00")
         parsed = datetime.fromisoformat(normalized)
@@ -107,3 +120,27 @@ def parse_when(value: str | None) -> datetime:
         return parsed
     except ValueError as exc:
         raise ValidationError("when은 ISO 날짜/시간 형식으로 입력해 주세요.") from exc
+
+
+def _kst_now(now: datetime | None) -> datetime:
+    if now is None:
+        return datetime.now(KST)
+    if now.tzinfo is None:
+        return now.replace(tzinfo=KST)
+    return now.astimezone(KST)
+
+
+def _next_weekday(base: datetime, weekday: int, hour: int = 12, include_today: bool = True) -> datetime:
+    days = (weekday - base.weekday()) % 7
+    if days == 0 and not include_today:
+        days = 7
+    target_day = base.date() + timedelta(days=days)
+    return datetime.combine(target_day, time(hour=hour), tzinfo=KST)
+
+
+def _has_night_hint(text: str) -> bool:
+    return any(hint in text for hint in ("밤", "야간", "저녁", "night", "evening"))
+
+
+def _has_weekday_hint(text: str, *hints: str) -> bool:
+    return any(hint in text for hint in hints)

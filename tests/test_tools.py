@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import datetime
 
 from mypet_life_mcp.core.korean import FORBIDDEN_USER_PHRASES
 from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, parse_when
@@ -158,6 +159,23 @@ class ToolTests(unittest.TestCase):
         self.assertIsNotNone(parse_when("현재").tzinfo)
         self.assertEqual(parse_when("오늘 밤").hour, 21)
 
+    def test_parse_when_accepts_weekend_and_weekday_nuance(self):
+        base = datetime.fromisoformat("2026-07-14T10:00:00+09:00")
+        weekend = parse_when("주말", now=base)
+        self.assertEqual(weekend.date().isoformat(), "2026-07-18")
+        self.assertEqual(weekend.hour, 12)
+
+        saturday_night = parse_when("토요일 밤", now=base)
+        self.assertEqual(saturday_night.date().isoformat(), "2026-07-18")
+        self.assertEqual(saturday_night.hour, 21)
+
+        sunday = parse_when("일요일", now=base)
+        self.assertEqual(sunday.date().isoformat(), "2026-07-19")
+        self.assertEqual(sunday.hour, 12)
+
+        tomorrow = parse_when("내일", now=base)
+        self.assertEqual(tomorrow.date().isoformat(), "2026-07-15")
+
     def test_normalize_common_region_aliases(self):
         self.assertEqual(normalize_region_name("서울"), "서울특별시")
         self.assertEqual(normalize_region_name("서울시"), "서울특별시")
@@ -240,6 +258,20 @@ class ToolTests(unittest.TestCase):
         self.assertIn("외출 적합도", result["summary_ko"])
         self.assertGreaterEqual(result["outing_score"], 0)
         self.assert_korean_safe(result)
+
+    def test_outing_tool_accepts_weekend_natural_when(self):
+        result = make_pet_outing_plan(
+            "가평",
+            outing_type="산",
+            when="주말",
+            place_client=FakeSourceClient(self.places),
+            weather_client=FakeWeather(self.weather),
+            hospital_client=FakeSourceClient(self.hospitals),
+            pharmacy_client=FakeSourceClient(self.pharmacies),
+        )
+        self.assertNotEqual(result.get("status"), "invalid_request")
+        self.assertEqual(datetime.fromisoformat(result["resolved_when"]).weekday(), 5)
+        self.assertIn("summary_ko", result)
 
     def test_outing_keyword_search_is_limited(self):
         place_client = CountingPlaceClient(self.places)
