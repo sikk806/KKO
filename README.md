@@ -25,6 +25,8 @@ MyPet Life MCP는 반려동물 보호자가 외출, 여행, 야간/휴일 상황
 
 별도 화학물질 DB API와 별도 지도 API는 현재 사용하지 않습니다.
 
+역명 기반 위치 해석은 국가철도공단 도시광역철도 역사정보 파일을 정규화한 내장 JSON 데이터를 사용합니다.
+
 ## API 발급 및 문서
 
 - 식품안전나라 OpenAPI: [식품안전나라 데이터활용서비스](https://www.foodsafetykorea.go.kr/apiMain.do)

@@ -163,6 +163,22 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(_content_type_for_outing("펜션 숙소"), "32")
         self.assertEqual(_content_type_for_outing("산책 놀이"), "12")
         self.assertEqual(_outing_intent("강아지랑 물놀이"), "water")
+
+    def test_station_location_lookup(self):
+        mokdong = region_centroid("목동역 근처")
+        self.assertIsNotNone(mokdong)
+        self.assertIn("목동", mokdong.label)
+        self.assertAlmostEqual(mokdong.latitude, 37.5261, places=3)
+
+        seoul = region_centroid("서울역")
+        self.assertIsNotNone(seoul)
+        self.assertIn("서울", seoul.label)
+
+        city_hall = region_centroid("서울 시청역")
+        self.assertIsNotNone(city_hall)
+        self.assertIn("서울특별시", city_hall.address)
+
+        self.assertEqual(region_centroid("서울시").address, "서울특별시")
         self.assertEqual(_outing_intent("비오는날 실내"), "indoor")
         self.assertEqual(_outing_intent("드라이브"), "drive")
 

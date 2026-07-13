@@ -5,6 +5,7 @@ from typing import Any
 from mypet_life_mcp.core.schemas import Candidate, GeoPoint, SourceResult
 
 from .region_data import PROVINCE_ALIASES, REGION_CENTROIDS, SIGUNGU_BY_PROVINCE, SIGUNGU_SUFFIXES
+from .station_locations import station_centroid
 
 def normalize_region_name(location: str) -> str:
     text = " ".join(location.strip().split())
@@ -58,7 +59,7 @@ def region_centroid(location: str) -> GeoPoint | None:
         province = normalized.split(" ", 1)[0]
         coordinates = REGION_CENTROIDS.get(province)
     if coordinates is None:
-        return None
+        return station_centroid(location)
     latitude, longitude = coordinates
     return GeoPoint(label=normalized, latitude=latitude, longitude=longitude, address=normalized)
 

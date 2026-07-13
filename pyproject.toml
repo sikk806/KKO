@@ -20,3 +20,6 @@ mypet-life-mcp = "mypet_life_mcp.server:main"
 
 [tool.setuptools.packages.find]
 include = ["mypet_life_mcp*"]
+
+[tool.setuptools.package-data]
+mypet_life_mcp = ["data/*.json"]
