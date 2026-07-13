@@ -7,7 +7,14 @@ from mypet_life_mcp.clients import (
     WeatherClient,
 )
 from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
-from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
+from mypet_life_mcp.core.schemas import (
+    GeoPoint,
+    ValidationError,
+    optional_coordinate,
+    parse_when_options,
+    positive_radius,
+    require_text,
+)
 from mypet_life_mcp.core.scoring import enrich_distance, outing_score, rank_candidates
 
 from .common import (
@@ -50,7 +57,8 @@ def make_pet_outing_plan(
     try:
         location_text = normalize_region_name(require_text(location, "location"))
         radius = positive_radius(radius_km)
-        moment = parse_when(when)
+        moments = parse_when_options(when)
+        moment = moments[0]
         lat = optional_coordinate(latitude, "latitude", -90, 90)
         lon = optional_coordinate(longitude, "longitude", -180, 180)
     except ValidationError as exc:
@@ -96,6 +104,7 @@ def make_pet_outing_plan(
         "location": location_text,
         "resolved_location": origin.address if origin else None,
         "resolved_when": moment.isoformat(),
+        "resolved_when_options": [item.isoformat() for item in moments],
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),
         "pet_type": pet_type or "dog",
         "outing_type": outing_type,

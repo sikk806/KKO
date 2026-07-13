@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient, HolidayClient
 from mypet_life_mcp.core.korean import safety_note_ko
-from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, parse_when, positive_radius, require_text
+from mypet_life_mcp.core.schemas import (
+    GeoPoint,
+    ValidationError,
+    optional_coordinate,
+    parse_when_options,
+    positive_radius,
+    require_text,
+)
 from mypet_life_mcp.core.scoring import enrich_distance, is_holiday_or_night, rank_candidates
 
 from .common import (
@@ -31,7 +38,8 @@ def find_pet_emergency_candidates(
     try:
         location_text = normalize_region_name(require_text(location, "location"))
         radius = positive_radius(radius_km)
-        moment = parse_when(when)
+        moments = parse_when_options(when)
+        moment = moments[0]
         lat = optional_coordinate(latitude, "latitude", -90, 90)
         lon = optional_coordinate(longitude, "longitude", -180, 180)
     except ValidationError as exc:
@@ -44,8 +52,10 @@ def find_pet_emergency_candidates(
         origin = region_centroid(location_text)
         location_warning = location_basis_warning(location_text, origin, "후보를 정리합니다.")
 
-    holiday_result = (holiday_client or HolidayClient()).check(moment.date())
-    holiday = bool(holiday_result.items and holiday_result.items[0].get("is_holiday"))
+    holiday_api = holiday_client or HolidayClient()
+    holiday_results = [holiday_api.check(item.date()) for item in moments]
+    holiday_result = holiday_results[0]
+    holiday_flags = [bool(result.items and result.items[0].get("is_holiday")) for result in holiday_results]
     search_region = search_region_for_origin(origin, location_text)
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
     pharmacy_result = (pharmacy_client or AnimalPharmacyClient()).search(search_region, radius)
@@ -63,7 +73,7 @@ def find_pet_emergency_candidates(
         pharmacy_candidates = enrich_distance(pharmacy_candidates, origin)
     hospitals = rank_candidates(hospital_candidates, "hospital", situation)[:10]
     pharmacies = rank_candidates(pharmacy_candidates, "pharmacy", situation)[:10]
-    night_mode = is_holiday_or_night(moment, holiday)
+    night_mode = any(is_holiday_or_night(item, holiday) for item, holiday in zip(moments, holiday_flags))
     call_script = _call_script(pet_type, situation)
     mode = "holiday_or_night_candidates" if night_mode else "regular_candidates"
     summary = (
@@ -80,13 +90,14 @@ def find_pet_emergency_candidates(
         "location": location_text,
         "resolved_location": origin.address if origin else None,
         "resolved_when": moment.isoformat(),
+        "resolved_when_options": [item.isoformat() for item in moments],
         "location_precision": "provided_coordinate" if lat is not None and lon is not None else ("coordinate" if origin else "region_text_only"),
         "is_holiday_or_night": night_mode,
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],
         "animal_pharmacies": [candidate.to_dict() for candidate in pharmacies],
         "source_warnings_ko": ([location_warning] if location_warning else [])
         + ([fallback_warning] if fallback_warning else [])
-        + source_warnings(holiday_result, original_hospital_result, pharmacy_result),
+        + source_warnings(*holiday_results, original_hospital_result, pharmacy_result),
         "summary_ko": summary,
         "call_script_ko": call_script,
         "safety_note_ko": safety_note_ko(),

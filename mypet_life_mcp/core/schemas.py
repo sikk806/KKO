@@ -91,33 +91,39 @@ def optional_coordinate(value: Any, field_name: str, minimum: float, maximum: fl
 
 
 def parse_when(value: str | None, now: datetime | None = None) -> datetime:
+    return parse_when_options(value, now=now)[0]
+
+
+def parse_when_options(value: str | None, now: datetime | None = None) -> list[datetime]:
     base = _kst_now(now)
     if not value:
-        return base
+        return [base]
     natural = value.strip().lower()
     compact = natural.replace(" ", "")
     if natural in {"now", "current", "today", "지금", "현재", "오늘"}:
-        return base
+        return [base]
     if compact in {"tonight", "야간", "오늘밤"}:
-        return datetime.combine(base.date(), time(hour=21), tzinfo=KST)
+        return [datetime.combine(base.date(), time(hour=21), tzinfo=KST)]
     if compact in {"tomorrow", "내일"}:
-        return datetime.combine(base.date() + timedelta(days=1), time(hour=12), tzinfo=KST)
+        return [datetime.combine(base.date() + timedelta(days=1), time(hour=12), tzinfo=KST)]
     if compact in {"모레"}:
-        return datetime.combine(base.date() + timedelta(days=2), time(hour=12), tzinfo=KST)
+        return [datetime.combine(base.date() + timedelta(days=2), time(hour=12), tzinfo=KST)]
     if "주말" in compact or compact in {"weekend"}:
         hour = 21 if _has_night_hint(compact) else 12
         skip_this_week = "다음" in compact or "next" in compact
-        return _next_weekday(base, 5, hour=hour, include_today=not skip_this_week)
+        saturday = _next_weekday(base, 5, hour=hour, include_today=not skip_this_week)
+        sunday = datetime.combine(saturday.date() + timedelta(days=1), time(hour=hour), tzinfo=KST)
+        return [saturday, sunday]
     if _has_weekday_hint(compact, "saturday", "토요일", "토욜"):
-        return _next_weekday(base, 5, hour=21 if _has_night_hint(compact) else 12)
+        return [_next_weekday(base, 5, hour=21 if _has_night_hint(compact) else 12)]
     if _has_weekday_hint(compact, "sunday", "일요일", "일욜"):
-        return _next_weekday(base, 6, hour=21 if _has_night_hint(compact) else 12)
+        return [_next_weekday(base, 6, hour=21 if _has_night_hint(compact) else 12)]
     try:
         normalized = value.replace("Z", "+00:00")
         parsed = datetime.fromisoformat(normalized)
         if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=KST)
-        return parsed
+            return [parsed.replace(tzinfo=KST)]
+        return [parsed]
     except ValueError as exc:
         raise ValidationError("when은 ISO 날짜/시간 형식으로 입력해 주세요.") from exc
 

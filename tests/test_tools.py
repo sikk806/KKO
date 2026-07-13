@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime
 
 from mypet_life_mcp.core.korean import FORBIDDEN_USER_PHRASES
-from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, parse_when
+from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, parse_when, parse_when_options
 from mypet_life_mcp.core.scoring import candidate_score, is_holiday_or_night, outing_score, rank_candidates
 from mypet_life_mcp.tools import (
     find_pet_emergency_candidates,
@@ -117,6 +117,17 @@ class ToolTests(unittest.TestCase):
         self.assertIn("전화 확인 필요", result["animal_hospitals"][0]["business_status"])
         self.assertTrue(any("내장 응급 연락 후보" in warning for warning in result["source_warnings_ko"]))
 
+    def test_emergency_tool_accepts_weekend_window(self):
+        result = find_pet_emergency_candidates(
+            "서울시",
+            when="주말",
+            hospital_client=FakeSourceClient(self.hospitals),
+            pharmacy_client=FakeSourceClient(self.pharmacies),
+            holiday_client=FakeHoliday(False),
+        )
+        self.assertTrue(result["is_holiday_or_night"])
+        self.assertEqual([datetime.fromisoformat(item).weekday() for item in result["resolved_when_options"]], [5, 6])
+
     def test_care_map_uses_busan_fallback_when_hospital_source_fails(self):
         result = make_pet_care_map(
             "부산 해운대",
@@ -164,6 +175,9 @@ class ToolTests(unittest.TestCase):
         weekend = parse_when("주말", now=base)
         self.assertEqual(weekend.date().isoformat(), "2026-07-18")
         self.assertEqual(weekend.hour, 12)
+        weekend_options = parse_when_options("주말", now=base)
+        self.assertEqual([item.date().isoformat() for item in weekend_options], ["2026-07-18", "2026-07-19"])
+        self.assertEqual([item.hour for item in weekend_options], [12, 12])
 
         saturday_night = parse_when("토요일 밤", now=base)
         self.assertEqual(saturday_night.date().isoformat(), "2026-07-18")
@@ -271,6 +285,7 @@ class ToolTests(unittest.TestCase):
         )
         self.assertNotEqual(result.get("status"), "invalid_request")
         self.assertEqual(datetime.fromisoformat(result["resolved_when"]).weekday(), 5)
+        self.assertEqual([datetime.fromisoformat(item).weekday() for item in result["resolved_when_options"]], [5, 6])
         self.assertIn("summary_ko", result)
 
     def test_outing_keyword_search_is_limited(self):
