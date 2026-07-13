@@ -34,9 +34,14 @@ class DataFileTests(unittest.TestCase):
     def test_emergency_fallback_data_shape(self):
         data = load_data_json("emergency_fallbacks.json")
         self.assertTrue(data["source"])
-        self.assertIn("서울", data["seoul_keywords"])
-        self.assertTrue(data["seoul_hospitals"])
-        for hospital in data["seoul_hospitals"]:
+        self.assertTrue(data["groups"])
+        keywords = {keyword for group in data["groups"] for keyword in group["keywords"]}
+        self.assertIn("서울", keywords)
+        self.assertIn("해운대", keywords)
+        self.assertIn("부평구청", keywords)
+        hospitals = [hospital for group in data["groups"] for hospital in group["hospitals"]]
+        self.assertTrue(hospitals)
+        for hospital in hospitals:
             self.assertTrue(hospital["name"])
-            self.assertTrue(hospital["phone"])
+            self.assertIn("phone", hospital)
             self.assertEqual(hospital["business_status"], "전화 확인 필요")

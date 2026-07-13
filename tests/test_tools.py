@@ -116,6 +116,26 @@ class ToolTests(unittest.TestCase):
         self.assertIn("전화 확인 필요", result["animal_hospitals"][0]["business_status"])
         self.assertTrue(any("내장 응급 연락 후보" in warning for warning in result["source_warnings_ko"]))
 
+    def test_care_map_uses_busan_fallback_when_hospital_source_fails(self):
+        result = make_pet_care_map(
+            "부산 해운대",
+            include_pharmacies=False,
+            hospital_client=FakeSourceClient([], ok=False, error_ko="동물병원 조회에 실패했습니다."),
+        )
+        self.assertEqual(result["animal_hospitals"][0]["name"], "해운대24시동물의료원")
+        self.assertIn("051-702-7582", result["animal_hospitals"][0]["phone"])
+        self.assertTrue(any("내장 연락 후보" in warning for warning in result["source_warnings_ko"]))
+
+    def test_care_map_uses_station_region_fallback_when_hospital_source_is_empty(self):
+        result = make_pet_care_map(
+            "부평구청역",
+            include_pharmacies=False,
+            hospital_client=FakeSourceClient([]),
+        )
+        self.assertEqual(result["animal_hospitals"][0]["name"], "24시부평종합동물의료센터")
+        self.assertIn("부평대로 138", result["animal_hospitals"][0]["address"])
+        self.assertTrue(any("전화 확인" in warning for warning in result["source_warnings_ko"]))
+
     def test_provided_coordinates_enable_distance(self):
         result = make_pet_care_map(
             "현재 위치",

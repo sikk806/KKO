@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from mypet_life_mcp.clients import AnimalHospitalClient, AnimalPharmacyClient
 from mypet_life_mcp.core.korean import confirmation_note_ko, safety_note_ko
-from mypet_life_mcp.core.schemas import GeoPoint, ValidationError, optional_coordinate, positive_radius, require_text
+from mypet_life_mcp.core.schemas import GeoPoint, SourceResult, ValidationError, optional_coordinate, positive_radius, require_text
 from mypet_life_mcp.core.scoring import enrich_distance, rank_candidates
 
 from .common import (
@@ -13,6 +13,7 @@ from .common import (
     search_region_for_origin,
     source_warnings,
 )
+from .emergency_fallbacks import EMERGENCY_FALLBACK_SOURCE, emergency_hospital_fallbacks
 
 
 def make_pet_care_map(
@@ -40,6 +41,16 @@ def make_pet_care_map(
 
     search_region = search_region_for_origin(origin, location_text)
     hospital_result = (hospital_client or AnimalHospitalClient()).search(search_region, radius)
+    original_hospital_result = hospital_result
+    fallback_warning = None
+    if not hospital_result.ok or not hospital_result.items:
+        fallback_items = emergency_hospital_fallbacks(location_text, origin)
+        if fallback_items:
+            hospital_result = SourceResult(items=fallback_items, source=EMERGENCY_FALLBACK_SOURCE)
+            fallback_warning = (
+                "공공데이터 병원 조회가 실패했거나 후보가 부족해 내장 연락 후보를 함께 제시합니다. "
+                "현재 진료 가능 여부는 전화 확인이 필요합니다."
+            )
     hospital_candidates = candidates_from_source(hospital_result, "동물병원")
     if origin:
         hospital_candidates = enrich_distance(hospital_candidates, origin)
@@ -52,7 +63,11 @@ def make_pet_care_map(
         if origin:
             pharmacy_candidates = enrich_distance(pharmacy_candidates, origin)
         pharmacies = rank_candidates(pharmacy_candidates, "pharmacy")[:12]
-    warnings = source_warnings(hospital_result, pharmacy_result) if pharmacy_result else source_warnings(hospital_result)
+    warnings = (
+        source_warnings(original_hospital_result, pharmacy_result)
+        if pharmacy_result
+        else source_warnings(original_hospital_result)
+    )
     return {
         "mode": "pet_care_map",
         "location": location_text,
@@ -61,7 +76,11 @@ def make_pet_care_map(
         "radius_km": radius,
         "animal_hospitals": [candidate.to_dict() for candidate in hospitals],
         "animal_pharmacies": [candidate.to_dict() for candidate in pharmacies],
-        "source_warnings_ko": ([location_warning] if location_warning else []) + warnings,
+        "source_warnings_ko": (
+            ([location_warning] if location_warning else [])
+            + ([fallback_warning] if fallback_warning else [])
+            + warnings
+        ),
         "summary_ko": f"{location_text} 주변의 동물병원과 동물약국 후보를 지도/공공데이터 기준으로 정리했습니다. {confirmation_note_ko()}",
         "safety_note_ko": safety_note_ko(),
     }

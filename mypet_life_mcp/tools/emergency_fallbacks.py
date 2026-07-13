@@ -6,18 +6,20 @@ from mypet_life_mcp.tools.data_files import load_data_json
 
 _DATA = load_data_json("emergency_fallbacks.json")
 EMERGENCY_FALLBACK_SOURCE = _DATA["source"]
-SEOUL_EMERGENCY_HOSPITALS = _DATA["seoul_hospitals"]
-SEOUL_KEYWORDS = tuple(_DATA["seoul_keywords"])
+FALLBACK_GROUPS = tuple(_DATA["groups"])
 
 
 def emergency_hospital_fallbacks(location: str, origin: GeoPoint | None = None) -> list[dict]:
-    if not _is_seoul_query(location, origin):
+    group = _matching_group(location, origin)
+    if not group:
         return []
-    return [{**item, "source": EMERGENCY_FALLBACK_SOURCE} for item in SEOUL_EMERGENCY_HOSPITALS]
+    return [{**item, "source": EMERGENCY_FALLBACK_SOURCE} for item in group["hospitals"]]
 
 
-def _is_seoul_query(location: str, origin: GeoPoint | None) -> bool:
+def _matching_group(location: str, origin: GeoPoint | None) -> dict | None:
     text = location.replace(" ", "")
-    if any(keyword in text for keyword in SEOUL_KEYWORDS):
-        return True
-    return bool(origin and origin.address.startswith("서울"))
+    address = (origin.address if origin else "").replace(" ", "")
+    for group in FALLBACK_GROUPS:
+        if any(keyword in text or keyword in address for keyword in group["keywords"]):
+            return group
+    return None
