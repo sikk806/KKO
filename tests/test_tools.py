@@ -288,6 +288,10 @@ class ToolTests(unittest.TestCase):
         self.assertIsNotNone(city_hall)
         self.assertIn("서울특별시", city_hall.address)
 
+        dongmyo = region_centroid("동묘앞 근처")
+        self.assertIsNotNone(dongmyo)
+        self.assertIn("동묘앞", dongmyo.label)
+
         self.assertEqual(region_centroid("서울시").address, "서울특별시")
 
     def test_station_warning_uses_station_basis(self):

@@ -97,6 +97,8 @@ def _strip_location_suffix(value: str) -> str:
         for suffix in LOCATION_SUFFIXES:
             key = _compact(suffix)
             if text.endswith(key):
+                if key == "앞" and not text[: -len(key)].endswith("역"):
+                    continue
                 text = text[: -len(key)]
                 changed = True
     return text
