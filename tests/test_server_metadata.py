@@ -15,7 +15,7 @@ class ServerMetadataTests(unittest.IsolatedAsyncioTestCase):
         for tool in tools:
             self.assertRegex(tool.name, re.compile(r"^[A-Za-z0-9_-]{1,128}$"))
             self.assertNotIn("kakao", tool.name.lower())
-            self.assertIn("MyPet Life", tool.description)
+            self.assertIn("MyPet Life(마이펫 라이프)", tool.description)
             self.assertLessEqual(len(tool.description), 1024)
             self.assertTrue(tool.inputSchema)
 

@@ -34,7 +34,7 @@ def create_app():
     @mcp.tool(
         name="find_pet_emergency_candidates",
         description=(
-            "MyPet Life finds candidate pet emergency contacts for nights, weekends, "
+            "MyPet Life(마이펫 라이프) finds candidate pet emergency contacts for nights, weekends, "
             "and holidays in Korea. It returns cautious Korean guidance and asks users "
             "to confirm availability by phone."
         ),
@@ -54,7 +54,7 @@ def create_app():
     @mcp.tool(
         name="make_pet_care_map",
         description=(
-            "MyPet Life builds a pet-care candidate map around an outing or travel "
+            "MyPet Life(마이펫 라이프) builds a pet-care candidate map around an outing or travel "
             "location in Korea, including animal hospitals and optional animal pharmacies."
         ),
         annotations=read_only_tool("Make a pet care candidate map"),
@@ -71,7 +71,7 @@ def create_app():
     @mcp.tool(
         name="make_pet_outing_plan",
         description=(
-            "MyPet Life suggests a Korean pet outing plan by combining pet-friendly "
+            "MyPet Life(마이펫 라이프) suggests a Korean pet outing plan by combining pet-friendly "
             "place candidates, weather context, and nearby care contacts."
         ),
         annotations=read_only_tool("Make a pet outing plan"),
@@ -90,7 +90,7 @@ def create_app():
     @mcp.tool(
         name="verify_pet_business",
         description=(
-            "MyPet Life verifies pet-related business license candidates against "
+            "MyPet Life(마이펫 라이프) verifies pet-related business license candidates against "
             "official public-data records and returns cautious Korean guidance."
         ),
         annotations=read_only_tool("Verify pet business license candidates"),
@@ -105,7 +105,7 @@ def create_app():
     @mcp.tool(
         name="check_pet_food_safety",
         description=(
-            "MyPet Life checks whether a dog or cat may need caution after eating a "
+            "MyPet Life(마이펫 라이프) checks whether a dog or cat may need caution after eating a "
             "food, product, or ingredient by combining local pet-food references with "
             "food ingredient lookup when available."
         ),
